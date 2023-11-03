@@ -48,6 +48,7 @@ const propTypes = {
   colorScheme: PropTypes.string,
   columnX: PropTypes.oneOfType([PropTypes.object, PropTypes.string]),
   columnY: PropTypes.oneOfType([PropTypes.object, PropTypes.string]),
+  colorByValue: PropTypes.bool,
   leftMargin: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
   metric: PropTypes.oneOfType([PropTypes.string, PropTypes.object]),
   normalized: PropTypes.bool,
@@ -87,6 +88,7 @@ function Heatmap(element, props) {
     colorScheme,
     columnX,
     columnY,
+    colorByValue,
     leftMargin,
     metric,
     normalized,
@@ -259,12 +261,13 @@ function Heatmap(element, props) {
   const X = 0;
   const Y = 1;
   const heatmapDim = [xRbScale.domain().length, yRbScale.domain().length];
-
+//  const minBound = 1;
+//  const maxBound = 200;
   const minBound = yAxisBounds[0] || 0;
   const maxBound = yAxisBounds[1] || 1;
   const colorScale = getSequentialSchemeRegistry()
     .get(colorScheme)
-    .createLinearScale([minBound, maxBound]);
+    .createLinearScale(minBound < 0 ? [minBound, 0, +maxBound] : [minBound, maxBound]);
 
   const scale = [
     d3.scale.linear().domain([0, heatmapDim[X]]).range([0, hmWidth]),
@@ -423,7 +426,7 @@ function Heatmap(element, props) {
     const image = context.createImageData(heatmapDim[0], heatmapDim[1]);
     const pixs = {};
     records.forEach(d => {
-      const c = d3.rgb(colorScale(normalized ? d.rank : d.perc));
+      const c = colorByValue ? d3.rgb(colorScale(normalized ? d.rank : d.v)) : d3.rgb(colorScale(normalized ? d.rank : d.perc));
       const x = xScale(d.x);
       const y = yScale(d.y);
       pixs[x + y * xScale.domain().length] = c;

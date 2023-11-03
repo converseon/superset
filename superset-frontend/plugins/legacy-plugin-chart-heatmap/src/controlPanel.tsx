@@ -347,6 +347,20 @@ const config: ControlPanelConfig = {
             },
           },
         ],
+        [
+          {
+            name: 'colorByValue',
+            config: {
+              type: 'CheckboxControl',
+              label: t('Color by Value'),
+              renderTrigger: true,
+              description: t(
+                'Whether to use raw value instead of percentage on the color scale',
+              ),
+              default: true,
+            },
+          },
+        ],
       ],
     },
   ],
