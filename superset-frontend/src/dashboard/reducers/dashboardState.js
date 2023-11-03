@@ -39,6 +39,12 @@ import {
   UNSET_FOCUSED_FILTER_FIELD,
   SET_ACTIVE_TABS,
   SET_FULL_SIZE_CHART_ID,
+  ON_FILTERS_REFRESH,
+  ON_FILTERS_REFRESH_SUCCESS,
+  SET_DATASETS_STATUS,
+  SET_OVERRIDE_CONFIRM,
+  SAVE_DASHBOARD_STARTED,
+  SAVE_DASHBOARD_FINISHED,
 } from '../actions/dashboardState';
 import { HYDRATE_DASHBOARD } from '../actions/hydrate';
 
@@ -107,6 +113,18 @@ export default function dashboardStateReducer(state = {}, action) {
     [ON_CHANGE]() {
       return { ...state, hasUnsavedChanges: true };
     },
+    [SAVE_DASHBOARD_STARTED]() {
+      return {
+        ...state,
+        dashboardIsSaving: true,
+      };
+    },
+    [SAVE_DASHBOARD_FINISHED]() {
+      return {
+        ...state,
+        dashboardIsSaving: false,
+      };
+    },
     [ON_SAVE]() {
       return {
         ...state,
@@ -136,6 +154,18 @@ export default function dashboardStateReducer(state = {}, action) {
         isRefreshing: true,
       };
     },
+    [ON_FILTERS_REFRESH]() {
+      return {
+        ...state,
+        isFiltersRefreshing: true,
+      };
+    },
+    [ON_FILTERS_REFRESH_SUCCESS]() {
+      return {
+        ...state,
+        isFiltersRefreshing: false,
+      };
+    },
     [ON_REFRESH_SUCCESS]() {
       return {
         ...state,
@@ -156,6 +186,12 @@ export default function dashboardStateReducer(state = {}, action) {
       return {
         ...state,
         activeTabs: Array.from(newActiveTabs),
+      };
+    },
+    [SET_OVERRIDE_CONFIRM]() {
+      return {
+        ...state,
+        overwriteConfirmMetadata: action.overwriteConfirmMetadata,
       };
     },
     [SET_FOCUSED_FILTER_FIELD]() {
@@ -187,6 +223,12 @@ export default function dashboardStateReducer(state = {}, action) {
       return {
         ...state,
         fullSizeChartId: action.chartId,
+      };
+    },
+    [SET_DATASETS_STATUS]() {
+      return {
+        ...state,
+        datasetsStatus: action.status,
       };
     },
   };

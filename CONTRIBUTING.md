@@ -52,9 +52,12 @@ little bit helps, and credit will always be given.
   - [Revert Guidelines](#revert-guidelines)
   - [Setup Local Environment for Development](#setup-local-environment-for-development)
     - [Documentation](#documentation)
-      - [Images](#images)
+      - [Local Development](#local-development)
+      - [Build](#build)
+      - [Deployment](#deployment)
     - [Flask server](#flask-server)
       - [OS Dependencies](#os-dependencies)
+      - [Dependencies](#dependencies)
       - [Logging to the browser console](#logging-to-the-browser-console)
     - [Frontend](#frontend)
       - [Prerequisite](#prerequisite)
@@ -63,16 +66,18 @@ little bit helps, and credit will always be given.
       - [Build assets](#build-assets)
       - [Webpack dev server](#webpack-dev-server)
       - [Other npm commands](#other-npm-commands)
-      - [Docker (docker-compose)](#docker-docker-compose)
+      - [Docker (docker compose)](#docker-docker-compose)
       - [Updating NPM packages](#updating-npm-packages)
       - [Feature flags](#feature-flags)
   - [Git Hooks](#git-hooks)
   - [Linting](#linting)
+    - [Python](#python)
+    - [TypeScript](#typescript)
   - [Conventions](#conventions)
-    - [Python](#python-conventions)
+    - [Python Conventions](#python-conventions)
   - [Typing](#typing)
-    - [Python](#python-typing)
-    - [TypeScript](#typeScript-typing)
+    - [Python Typing](#python-typing)
+    - [TypeScript Typing](#typescript-typing)
   - [Testing](#testing)
     - [Python Testing](#python-testing)
     - [Frontend Testing](#frontend-testing)
@@ -92,7 +97,7 @@ little bit helps, and credit will always be given.
     - [SQL Lab Async](#sql-lab-async)
     - [Async Chart Queries](#async-chart-queries)
   - [Chart Parameters](#chart-parameters)
-    - [Datasource & Chart Type](#datasource--chart-type)
+    - [Datasource \& Chart Type](#datasource--chart-type)
     - [Time](#time)
     - [GROUP BY](#group-by)
     - [NOT GROUPED BY](#not-grouped-by)
@@ -116,12 +121,12 @@ Here's a list of repositories that contain Superset-related packages:
   the [superset-frontend](https://github.com/apache/superset/tree/master/superset-frontend)
   folder.
 - [github.com/apache-superset](https://github.com/apache-superset) is the
-  Github organization under which we manage Superset-related
+  GitHub organization under which we manage Superset-related
   small tools, forks and Superset-related experimental ideas.
 
 ## Types of Contributions
 
-### Report Bug
+### Report a Bug
 
 The best way to report a bug is to file an issue on GitHub. Please include:
 
@@ -133,15 +138,17 @@ The best way to report a bug is to file an issue on GitHub. Please include:
 When posting Python stack traces, please quote them using
 [Markdown blocks](https://help.github.com/articles/creating-and-highlighting-code-blocks/).
 
+_Please note that feature requests opened as GitHub Issues will be moved to Discussions._
+
 ### Submit Ideas or Feature Requests
 
-The best way is to file an issue on GitHub:
+The best way is to start an ["Ideas" Discussion thread](https://github.com/apache/superset/discussions/categories/ideas) on GitHub:
 
 - Explain in detail how it would work.
 - Keep the scope as narrow as possible, to make it easier to implement.
-- Remember that this is a volunteer-driven project, and that contributions are welcome :)
+- Remember that this is a volunteer-driven project, and that your contributions are as welcome as anyone's :)
 
-For large features or major changes to codebase, please create **Superset Improvement Proposal (SIP)**. See template from [SIP-0](https://github.com/apache/superset/issues/5602)
+To propose large features or major changes to codebase, and help usher in those changes, please create a **Superset Improvement Proposal (SIP)**. See template from [SIP-0](https://github.com/apache/superset/issues/5602)
 
 ### Fix Bugs
 
@@ -157,13 +164,13 @@ Look through the GitHub issues. Issues tagged with
 
 Superset could always use better documentation,
 whether as part of the official Superset docs,
-in docstrings, `docs/*.rst` or even on the web as blog posts or
+in docstrings, or even on the web as blog posts or
 articles. See [Documentation](#documentation) for more details.
 
 ### Add Translations
 
 If you are proficient in a non-English language, you can help translate
-text strings from Superset's UI. You can jump in to the existing
+text strings from Superset's UI. You can jump into the existing
 language dictionaries at
 `superset/translations/<language_code>/LC_MESSAGES/messages.po`, or
 even create a dictionary for a new language altogether.
@@ -198,7 +205,7 @@ Finally, never submit a PR that will put master branch in broken state. If the P
 #### Authoring
 
 - Fill in all sections of the PR template.
-- Title the PR with one of the following semantic prefixes (inspired by [Karma](http://karma-runner.github.io/0.10/dev/git-commit-msg.html])):
+- Title the PR with one of the following semantic prefixes (inspired by [Karma](http://karma-runner.github.io/0.10/dev/git-commit-msg.html)):
 
   - `feat` (new feature)
   - `fix` (bug fix)
@@ -209,7 +216,7 @@ Finally, never submit a PR that will put master branch in broken state. If the P
   - `chore` (updating tasks etc; no application logic change)
   - `perf` (performance-related change)
   - `build` (build tooling, Docker configuration change)
-  - `ci` (test runner, Github Actions workflow changes)
+  - `ci` (test runner, GitHub Actions workflow changes)
   - `other` (changes that don't correspond to the above -- should be rare!)
   - Examples:
     - `feat: export charts as ZIP files`
@@ -322,16 +329,16 @@ Triaging goals
 
 First, add **Category labels (a.k.a. hash labels)**. Every issue/PR must have one hash label (except spam entry). Labels that begin with `#` defines issue/PR type:
 
-| Label           | for Issue                                                                                                                               | for PR                                                                                                                                            |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `#bug`          | Bug report                                                                                                                              | Bug fix                                                                                                                                           |
-| `#code-quality` | Describe problem with code, architecture or productivity                                                                                | Refactor, tests, tooling                                                                                                                          |
-| `#feature`      | New feature request                                                                                                                     | New feature implementation                                                                                                                        |
-| `#refine`       | Propose improvement that does not provide new features and is also not a bug fix nor refactor, such as adjust padding, refine UI style. | Implementation of improvement that does not provide new features and is also not a bug fix nor refactor, such as adjust padding, refine UI style. |
-| `#doc`          | Documentation                                                                                                                           | Documentation                                                                                                                                     |
-| `#question`     | Troubleshooting: Installation, Running locally, Ask how to do something. Can be changed to `#bug` later.                                | N/A                                                                                                                                               |
-| `#SIP`          | Superset Improvement Proposal                                                                                                           | N/A                                                                                                                                               |
-| `#ASF`          | Tasks related to Apache Software Foundation policy                                                                                      | Tasks related to Apache Software Foundation policy                                                                                                |
+| Label           | for Issue                                                                                                               | for PR                                                                                                                                            |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `#bug`          | Bug report                                                                                                              | Bug fix                                                                                                                           |
+| `#code-quality` | Describe problem with code, architecture or productivity                                                                | Refactor, tests, tooling                                                                                                          |
+| `#feature`      | New feature request                                                                                                     | New feature implementation                                                                                                        |
+| `#refine`       | Propose improvement such as adjusting padding or refining UI style, excluding new features, bug fixes, and refactoring. | Implementation of improvement such as adjusting padding or refining UI style, excluding new features, bug fixes, and refactoring. |
+| `#doc`          | Documentation                                                                                                           | Documentation                                                                                                                     |
+| `#question`     | Troubleshooting: Installation, Running locally, Ask how to do something. Can be changed to `#bug` later.                | N/A                                                                                                                               |
+| `#SIP`          | Superset Improvement Proposal                                                                                           | N/A                                                                                                                               |
+| `#ASF`          | Tasks related to Apache Software Foundation policy                                                                      | Tasks related to Apache Software Foundation policy                                                                                |
 
 Then add other types of labels as appropriate.
 
@@ -385,23 +392,30 @@ cd superset
 
 The latest documentation and tutorial are available at https://superset.apache.org/.
 
-The site is written using the Gatsby framework and docz for the
-documentation subsection. Find out more about it in `docs/README.md`
+The documentation site is built using [Docusaurus 2](https://docusaurus.io/), a modern static website generator, the source for which resides in `./docs`.
 
-#### Images
+#### Local Development
 
-If you're adding new images to the documentation, you'll notice that the images
-referenced in the rst, e.g.
+To set up a local development environment with hot reloading for the documentation site:
 
-    .. image:: _static/images/tutorial/tutorial_01_sources_database.png
+```shell
+cd docs
+yarn install  # Installs NPM dependencies
+yarn start  # Starts development server at http://localhost:3000
+```
 
-aren't actually stored in that directory. Instead, you should add and commit
-images (and any other static assets) to the `superset-frontend/src/assets/images` directory.
-When the docs are deployed to https://superset.apache.org/, images
-are copied from there to the `_static/images` directory, just like they're referenced
-in the docs.
+#### Build
 
-For example, the image referenced above actually lives in `superset-frontend/src/assets/images/tutorial`. Since the image is moved during the documentation build process, the docs reference the image in `_static/images/tutorial` instead.
+To create and serve a production build of the documentation site:
+
+```shell
+yarn build
+yarn serve
+```
+
+#### Deployment
+
+Commits to `master` trigger a rebuild and redeploy of the documentation site. Submit pull requests that modify the documentation with the `docs:` prefix.
 
 ### Flask server
 
@@ -410,9 +424,9 @@ For example, the image referenced above actually lives in `superset-frontend/src
 Make sure your machine meets the [OS dependencies](https://superset.apache.org/docs/installation/installing-superset-from-scratch#os-dependencies) before following these steps.
 You also need to install MySQL or [MariaDB](https://mariadb.com/downloads).
 
-Ensure that you are using Python version 3.7 or 3.8, then proceed with:
+Ensure that you are using Python version 3.8, 3.9, 3.10 or 3.11, then proceed with:
 
-````bash
+```bash
 # Create a virtual environment and activate it (recommended)
 python3 -m venv venv # setup a python3 virtualenv
 source venv/bin/activate
@@ -439,7 +453,7 @@ superset load-examples
 # Start the Flask dev web server from inside your virtualenv.
 # Note that your page may not have CSS at this point.
 # See instructions below how to build the front-end assets.
-FLASK_ENV=development superset run -p 8088 --with-threads --reload --debugger
+superset run -p 8088 --with-threads --reload --debugger --debug
 ```
 
 Or you can install via our Makefile
@@ -457,13 +471,13 @@ $ make superset
 
 # Setup pre-commit only
 $ make pre-commit
-````
+```
 
 **Note: the FLASK_APP env var should not need to be set, as it's currently controlled
 via `.flaskenv`, however if needed, it should be set to `superset.app:create_app()`**
 
 If you have made changes to the FAB-managed templates, which are not built the same way as the newer, React-powered front-end assets, you need to start the app without the `--with-threads` argument like so:
-`FLASK_ENV=development superset run -p 8088 --reload --debugger`
+`superset run -p 8088 --reload --debugger --debug`
 
 #### Dependencies
 
@@ -488,7 +502,7 @@ To bring all dependencies up to date as per the restrictions defined in `setup.p
 $ pip-compile-multi
 ```
 
-This should be done periodically, but it is rcommended to do thorough manual testing of the application to ensure no breaking changes have been introduced that aren't caught by the unit and integration tests.
+This should be done periodically, but it is recommended to do thorough manual testing of the application to ensure no breaking changes have been introduced that aren't caught by the unit and integration tests.
 
 #### Logging to the browser console
 
@@ -504,7 +518,7 @@ def FLASK_APP_MUTATOR(app):
 Then make sure you run your WSGI server using the right worker type:
 
 ```bash
-FLASK_ENV=development gunicorn "superset.app:create_app()" -k "geventwebsocket.gunicorn.workers.GeventWebSocketWorker" -b 127.0.0.1:8088 --reload
+gunicorn "superset.app:create_app()" -k "geventwebsocket.gunicorn.workers.GeventWebSocketWorker" -b 127.0.0.1:8088 --reload
 ```
 
 You can log anything to the browser console, including objects:
@@ -533,6 +547,11 @@ We recommend using [nvm](https://github.com/nvm-sh/nvm) to manage your node envi
 ```bash
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.37.0/install.sh | bash
 
+incase it shows '-bash: nvm: command not found'
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+
 cd superset-frontend
 nvm install --lts
 nvm use --lts
@@ -558,6 +577,19 @@ cd superset-frontend
 npm ci
 ```
 
+Note that Superset uses [Scarf](https://docs.scarf.sh) to capture telemetry/analytics about versions being installed, including the `scarf-js` npm package. As noted elsewhere in this documentation, Scarf gathers aggregated stats for the sake of security/release strategy, and does not capture/retain PII. [You can read here](https://docs.scarf.sh/package-analytics/) about the package, and various means to opt out of it, but one easy way to opt out is to add this setting in `superset-frontent/package.json`:
+
+```json
+// your-package/package.json
+{
+  // ...
+  "scarfSettings": {
+    "enabled": false
+  }
+  // ...
+}
+```
+
 #### Build assets
 
 There are three types of assets you can build:
@@ -566,9 +598,36 @@ There are three types of assets you can build:
 2. `npm run dev-server`: local development assets, with sourcemaps and hot refresh support
 3. `npm run build-instrumented`: instrumented application code for collecting code coverage from Cypress tests
 
+If this type of error comes while building assets(i.e using above commands):
+
+```bash
+Error: You must provide the URL of lib/mappings.wasm by calling SourceMapConsumer.initialize
+```
+
+Then put this:
+
+```bash
+export NODE_OPTIONS=--no-experimental-fetch
+```
+
 #### Webpack dev server
 
-The dev server by default starts at `http://localhost:9000` and proxies the backend requests to `http://localhost:8088`. It's possible to change these settings:
+The dev server by default starts at `http://localhost:9000` and proxies the backend requests to `http://localhost:8088`.
+
+So a typical development workflow is the following:
+
+1. [run Superset locally](#flask-server) using Flask, on port `8088` — but don't access it directly,<br/>
+   ```bash
+   # Install Superset and dependencies, plus load your virtual environment first, as detailed above.
+   superset run -p 8088 --with-threads --reload --debugger --debug
+   ```
+2. in parallel, run the Webpack dev server locally on port `9000`,<br/>
+   ```bash
+   npm run dev-server
+   ```
+3. access `http://localhost:9000` (the Webpack server, _not_ Flask) in your web browser. This will use the hot-reloading front-end assets from the Webpack development server while redirecting back-end queries to Flask/Superset: your changes on Superset codebase — either front or back-end — will then be reflected live in the browser.
+
+It's possible to change the Webpack server settings:
 
 ```bash
 # Start the dev server at http://localhost:9000
@@ -593,7 +652,7 @@ Alternatively, there are other NPM commands you may find useful:
 1. `npm run build-dev`: build assets in development mode.
 2. `npm run dev`: built dev assets in watch mode, will automatically rebuild when a file changes
 
-#### Docker (docker-compose)
+#### Docker (docker compose)
 
 See docs [here](docker/README.md)
 
@@ -613,7 +672,7 @@ FEATURE_FLAGS = {
 }
 ```
 
-If you want to use the same flag in the client code, also add it to the FeatureFlag TypeScript enum in [@superset-ui/core](https://github.com/apache-superset/superset-ui/blob/master/packages/superset-ui-core/src/utils/featureFlags.ts). For example,
+If you want to use the same flag in the client code, also add it to the FeatureFlag TypeScript enum in [@superset-ui/core](https://github.com/apache/superset/blob/master/superset-frontend/packages/superset-ui-core/src/utils/featureFlags.ts). For example,
 
 ```typescript
 export enum FeatureFlag {
@@ -661,10 +720,10 @@ We use [Pylint](https://pylint.org/) for linting which can be invoked via:
 tox -e pylint
 ```
 
-In terms of best practices please advoid blanket disablement of Pylint messages globally (via `.pylintrc`) or top-level within the file header, albeit there being a few exceptions. Disablement should occur inline as it prevents masking issues and provides context as to why said message is disabled.
+In terms of best practices please avoid blanket disabling of Pylint messages globally (via `.pylintrc`) or top-level within the file header, albeit there being a few exceptions. Disabling should occur inline as it prevents masking issues and provides context as to why said message is disabled.
 
-Additionally the Python code is auto-formatted using [Black](https://github.com/python/black) which
-is configured as a pre-commit hook. There are also numerous [editor integrations](https://black.readthedocs.io/en/stable/editor_integration.html)
+Additionally, the Python code is auto-formatted using [Black](https://github.com/python/black) which
+is configured as a pre-commit hook. There are also numerous [editor integrations](https://black.readthedocs.io/en/stable/integrations/editors.html)
 
 ### TypeScript
 
@@ -804,7 +863,6 @@ We use [Cypress](https://www.cypress.io/) for integration tests. Tests can be ru
 ```bash
 export SUPERSET_CONFIG=tests.integration_tests.superset_test_config
 export SUPERSET_TESTENV=true
-export ENABLE_REACT_CRUD_VIEWS=true
 export CYPRESS_BASE_URL="http://localhost:8081"
 superset db upgrade
 superset load_test_users
@@ -826,10 +884,10 @@ npm install
 npm run cypress-run-chrome
 
 # run tests from a specific file
-npm run cypress-run-chrome -- --spec cypress/integration/explore/link.test.ts
+npm run cypress-run-chrome -- --spec cypress/e2e/explore/link.test.ts
 
 # run specific file with video capture
-npm run cypress-run-chrome -- --spec cypress/integration/dashboard/index.test.js --config video=true
+npm run cypress-run-chrome -- --spec cypress/e2e/dashboard/index.test.js --config video=true
 
 # to open the cypress ui
 npm run cypress-debug
@@ -841,17 +899,17 @@ CYPRESS_BASE_URL=<your url> npm run cypress open
 
 See [`superset-frontend/cypress_build.sh`](https://github.com/apache/superset/blob/master/superset-frontend/cypress_build.sh).
 
-As an alternative you can use docker-compose environment for testing:
+As an alternative you can use docker compose environment for testing:
 
 Make sure you have added below line to your /etc/hosts file:
 `127.0.0.1 db`
 
 If you already have launched Docker environment please use the following command to assure a fresh database instance:
-`docker-compose down -v`
+`docker compose down -v`
 
 Launch environment:
 
-`CYPRESS_CONFIG=true docker-compose up`
+`CYPRESS_CONFIG=true docker compose up`
 
 It will serve backend and frontend on port 8088.
 
@@ -864,6 +922,33 @@ npm run cypress open
 ```
 
 ### Debugging Server App
+
+#### Local
+
+For debugging locally using VSCode, you can configure a launch configuration file .vscode/launch.json such as
+
+```json
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Python: Flask",
+      "type": "python",
+      "request": "launch",
+      "module": "flask",
+      "env": {
+        "FLASK_APP": "superset",
+        "SUPERSET_ENV": "development"
+      },
+      "args": ["run", "-p 8088", "--with-threads", "--reload", "--debugger"],
+      "jinja": true,
+      "justMyCode": true
+    }
+  ]
+}
+```
+
+#### Docker
 
 Follow these instructions to debug the Flask app running inside a docker container.
 
@@ -891,7 +976,7 @@ superset:
 Start Superset as usual
 
 ```bash
-docker-compose up
+docker compose up
 ```
 
 Install the required libraries and packages to the docker container
@@ -942,26 +1027,26 @@ tcp        0      0 0.0.0.0:8088            0.0.0.0:*               LISTEN      
 
 You are now ready to attach a debugger to the process. Using VSCode you can configure a launch configuration file .vscode/launch.json like so.
 
-```
+```json
 {
-    "version": "0.2.0",
-    "configurations": [
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Attach to Superset App in Docker Container",
+      "type": "python",
+      "request": "attach",
+      "connect": {
+        "host": "127.0.0.1",
+        "port": 5678
+      },
+      "pathMappings": [
         {
-            "name": "Attach to Superset App in Docker Container",
-            "type": "python",
-            "request": "attach",
-            "connect": {
-                "host": "127.0.0.1",
-                "port": 5678
-            },
-            "pathMappings": [
-                {
-                    "localRoot": "${workspaceFolder}",
-                    "remoteRoot": "/app"
-                }
-            ]
-        },
-    ]
+          "localRoot": "${workspaceFolder}",
+          "remoteRoot": "/app"
+        }
+      ]
+    }
+  ]
 }
 ```
 
@@ -1004,7 +1089,7 @@ When contributing new React components to Superset, please try to add a Story al
 
 ## Translating
 
-We use [Babel](http://babel.pocoo.org/en/latest/) to translate Superset.
+We use [Flask-Babel](https://python-babel.github.io/flask-babel/) to translate Superset.
 In Python files, we import the magic `_` function using:
 
 ```python
@@ -1047,6 +1132,7 @@ LANGUAGES = {
 ```
 
 This script will
+
 1. update the template file `superset/translations/messages.pot` with current application strings.
 2. update language files with the new extracted strings.
 
@@ -1116,7 +1202,7 @@ Then, [Updating language files](#updating-language-files).
 
 The topic of authoring new plugins, whether you'd like to contribute
 it back or not has been well documented in the
-[So, You Want to Build a Superset Viz Plugin...](https://preset.io/blog/2020-07-02-hello-world/) blog post
+[the documentation](https://superset.apache.org/docs/contributing/creating-viz-plugins), and in [this blog post](https://preset.io/blog/building-custom-viz-plugins-in-superset-v2).
 
 To contribute a plugin to Superset, your plugin must meet the following criteria:
 
@@ -1125,7 +1211,7 @@ To contribute a plugin to Superset, your plugin must meet the following criteria
 - The plugin should contain sufficient unit/e2e tests
 - The plugin should use appropriate namespacing, e.g. a folder name of `plugin-chart-whatever` and a package name of `@superset-ui/plugin-chart-whatever`
 - The plugin should use them variables via Emotion, as passed in by the ThemeProvider
-- The plugin should provide adequate error handling (no data returned, malformatted data, invalid controls, etc.)
+- The plugin should provide adequate error handling (no data returned, malformed data, invalid controls, etc.)
 - The plugin should contain documentation in the form of a populated `README.md` file
 - The plugin should have a meaningful and unique icon
 - Above all else, the plugin should come with a _commitment to maintenance_ from the original author(s)
@@ -1261,14 +1347,14 @@ To do this, you'll need to:
   but perfect for testing (stores cache in `/tmp`)
 
   ```python
-  from cachelib.file import FileSystemCache
+  from flask_caching.backends.filesystemcache import FileSystemCache
   RESULTS_BACKEND = FileSystemCache('/tmp/sqllab')
   ```
 
 - Start up a celery worker
 
   ```shell script
-  celery --app=superset.tasks.celery_app:app worker -Ofair
+  celery --app=superset.tasks.celery_app:app worker -O fair
   ```
 
 Note that:
@@ -1298,6 +1384,7 @@ The following configuration settings are available for async queries (see config
 - `GLOBAL_ASYNC_QUERIES_REDIS_STREAM_LIMIT_FIREHOSE` - the maximum number of events for all users (FIFO eviction)
 - `GLOBAL_ASYNC_QUERIES_JWT_COOKIE_NAME` - the async query feature uses a [JWT](https://tools.ietf.org/html/rfc7519) cookie for authentication, this setting is the cookie's name
 - `GLOBAL_ASYNC_QUERIES_JWT_COOKIE_SECURE` - JWT cookie secure option
+- `GLOBAL_ASYNC_QUERIES_JWT_COOKIE_SAMESITE` - JWT cookie same site option
 - `GLOBAL_ASYNC_QUERIES_JWT_COOKIE_DOMAIN` - JWT cookie domain option ([see docs for set_cookie](https://tedboy.github.io/flask/interface_api.response_object.html#flask.Response.set_cookie))
 - `GLOBAL_ASYNC_QUERIES_JWT_SECRET` - JWT's use a secret key to sign and validate the contents. This value should be at least 32 bytes and have sufficient randomness for proper security
 - `GLOBAL_ASYNC_QUERIES_TRANSPORT` - available options: "polling" (HTTP, default), "ws" (WebSocket, requires running superset-websocket server)
@@ -1315,24 +1402,22 @@ Note not all fields are correctly categorized. The fields vary based on visualiz
 
 ### Datasource & Chart Type
 
-| Field             | Type     | Notes                               |
-| ----------------- | -------- | ----------------------------------- |
-| `database_name`   | _string_ | _Deprecated?_                       |
+| Field             | Type     | Notes                                |
+| ----------------- | -------- | ------------------------------------ |
+| `database_name`   | _string_ | _Deprecated?_                        |
 | `datasource`      | _string_ | `<datasource_id>__<datasource_type>` |
-| `datasource_id`   | _string_ | _Deprecated?_ See `datasource`      |
-| `datasource_name` | _string_ | _Deprecated?_                       |
-| `datasource_type` | _string_ | _Deprecated?_ See `datasource`      |
-| `viz_type`        | _string_ | The **Visualization Type** widget   |
+| `datasource_id`   | _string_ | _Deprecated?_ See `datasource`       |
+| `datasource_name` | _string_ | _Deprecated?_                        |
+| `datasource_type` | _string_ | _Deprecated?_ See `datasource`       |
+| `viz_type`        | _string_ | The **Visualization Type** widget    |
 
 ### Time
 
-| Field               | Type     | Notes                                 |
-| ------------------- | -------- | ------------------------------------- |
-| `druid_time_origin` | _string_ | The Druid **Origin** widget           |
-| `granularity`       | _string_ | The Druid **Time Granularity** widget |
-| `granularity_sqla`  | _string_ | The SQLA **Time Column** widget       |
-| `time_grain_sqla`   | _string_ | The SQLA **Time Grain** widget        |
-| `time_range`        | _string_ | The **Time range** widget             |
+| Field              | Type     | Notes                           |
+| ------------------ | -------- | ------------------------------- |
+| `granularity_sqla` | _string_ | The SQLA **Time Column** widget |
+| `time_grain_sqla`  | _string_ | The SQLA **Time Grain** widget  |
+| `time_range`       | _string_ | The **Time range** widget       |
 
 ### GROUP BY
 
@@ -1365,17 +1450,17 @@ Note not all fields are correctly categorized. The fields vary based on visualiz
 
 ### Query
 
-| Field                                                                                                  | Type                                              | Notes                                             |
-| ------------------------------------------------------------------------------------------------------ | ------------------------------------------------- | ------------------------------------------------- |
-| `adhoc_filters`                                                                                        | _array(object)_                                   | The **Filters** widget                            |
-| `extra_filters`                                                                                        | _array(object)_                                   | Another pathway to the **Filters** widget.<br/>It is generally used to pass dashboard filter parameters to a chart.<br/>It can be used for appending additional filters to a chart that has been saved with its own filters on an ad-hoc basis if the chart is being used as a standalone widget.<br/><br/>For implementation examples see : [utils test.py](https://github.com/apache/superset/blob/66a4c94a1ed542e69fe6399bab4c01d4540486cf/tests/utils_tests.py#L181)<br/>For insight into how superset processes the contents of this parameter see: [exploreUtils/index.js](https://github.com/apache/superset/blob/93c7f5bb446ec6895d7702835f3157426955d5a9/superset-frontend/src/explore/exploreUtils/index.js#L159)                         |
-| `columns`                                                                                              | _array(string)_                                   | The **Breakdowns** widget                         |
-| `groupby`                                                                                              | _array(string)_                                   | The **Group by** or **Series** widget             |
-| `limit`                                                                                                | _number_                                          | The **Series Limit** widget                       |
-| `metric`<br>`metric_2`<br>`metrics`<br>`percent_metrics`<br>`secondary_metric`<br>`size`<br>`x`<br>`y` | _string_,_object_,_array(string)_,_array(object)_ | The metric(s) depending on the visualization type |
-| `order_asc`                                                                                            | _boolean_                                         | The **Sort Descending** widget                    |
-| `row_limit`                                                                                            | _number_                                          | The **Row limit** widget                          |
-| `timeseries_limit_metric`                                                                              | _object_                                          | The **Sort By** widget                            |
+| Field                                                                                                  | Type                                              | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ------------------------------------------------------------------------------------------------------ | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `adhoc_filters`                                                                                        | _array(object)_                                   | The **Filters** widget                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `extra_filters`                                                                                        | _array(object)_                                   | Another pathway to the **Filters** widget.<br/>It is generally used to pass dashboard filter parameters to a chart.<br/>It can be used for appending additional filters to a chart that has been saved with its own filters on an ad-hoc basis if the chart is being used as a standalone widget.<br/><br/>For implementation examples see : [utils test.py](https://github.com/apache/superset/blob/66a4c94a1ed542e69fe6399bab4c01d4540486cf/tests/utils_tests.py#L181)<br/>For insight into how superset processes the contents of this parameter see: [exploreUtils/index.js](https://github.com/apache/superset/blob/93c7f5bb446ec6895d7702835f3157426955d5a9/superset-frontend/src/explore/exploreUtils/index.js#L159) |
+| `columns`                                                                                              | _array(string)_                                   | The **Breakdowns** widget                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `groupby`                                                                                              | _array(string)_                                   | The **Group by** or **Series** widget                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `limit`                                                                                                | _number_                                          | The **Series Limit** widget                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `metric`<br>`metric_2`<br>`metrics`<br>`percent_metrics`<br>`secondary_metric`<br>`size`<br>`x`<br>`y` | _string_,_object_,_array(string)_,_array(object)_ | The metric(s) depending on the visualization type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `order_asc`                                                                                            | _boolean_                                         | The **Sort Descending** widget                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `row_limit`                                                                                            | _number_                                          | The **Row limit** widget                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `timeseries_limit_metric`                                                                              | _object_                                          | The **Sort By** widget                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 
 The `metric` (or equivalent) and `timeseries_limit_metric` fields are all composed of either metric names or the JSON representation of the `AdhocMetric` TypeScript type. The `adhoc_filters` is composed of the JSON represent of the `AdhocFilter` TypeScript type (which can comprise of columns or metrics depending on whether it is a WHERE or HAVING clause). The `all_columns`, `all_columns_x`, `columns`, `groupby`, and `order_by_cols` fields all represent column names.
 

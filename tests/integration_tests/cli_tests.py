@@ -27,7 +27,9 @@ import yaml
 from freezegun import freeze_time
 
 import superset.cli.importexport
-from superset import app
+import superset.cli.thumbnails
+from superset import app, db
+from superset.models.dashboard import Dashboard
 from tests.integration_tests.fixtures.birth_names_dashboard import (
     load_birth_names_dashboard_with_slices,
     load_birth_names_data,
@@ -47,6 +49,9 @@ def assert_cli_fails_properly(response, caplog):
     assert caplog.records[-1].levelname == "ERROR"
 
 
+@mock.patch.dict(
+    "superset.cli.lib.feature_flags", {"VERSIONED_EXPORT": False}, clear=True
+)
 @pytest.mark.usefixtures("load_birth_names_dashboard_with_slices")
 def test_export_dashboards_original(app_context, fs):
     """
@@ -73,6 +78,9 @@ def test_export_dashboards_original(app_context, fs):
     json.loads(contents)
 
 
+@mock.patch.dict(
+    "superset.cli.lib.feature_flags", {"VERSIONED_EXPORT": False}, clear=True
+)
 @pytest.mark.usefixtures("load_birth_names_dashboard_with_slices")
 def test_export_datasources_original(app_context, fs):
     """
@@ -91,6 +99,7 @@ def test_export_datasources_original(app_context, fs):
     )
 
     assert response.exit_code == 0
+
     assert Path("datasources.yaml").exists()
 
     # check that file is valid JSON
@@ -336,7 +345,7 @@ def test_import_datasets_versioned_export(import_datasets_command, app_context, 
 
 
 @mock.patch.dict(
-    "superset.config.DEFAULT_FEATURE_FLAGS", {"VERSIONED_EXPORT": False}, clear=True
+    "superset.cli.lib.feature_flags", {"VERSIONED_EXPORT": False}, clear=True
 )
 @mock.patch("superset.datasets.commands.importers.v0.ImportDatasetsCommand")
 def test_import_datasets_sync_argument_columns_metrics(
@@ -366,12 +375,14 @@ def test_import_datasets_sync_argument_columns_metrics(
     assert response.exit_code == 0
     expected_contents = {"dataset.yaml": "hello: world"}
     import_datasets_command.assert_called_with(
-        expected_contents, sync_columns=True, sync_metrics=True,
+        expected_contents,
+        sync_columns=True,
+        sync_metrics=True,
     )
 
 
 @mock.patch.dict(
-    "superset.config.DEFAULT_FEATURE_FLAGS", {"VERSIONED_EXPORT": False}, clear=True
+    "superset.cli.lib.feature_flags", {"VERSIONED_EXPORT": False}, clear=True
 )
 @mock.patch("superset.datasets.commands.importers.v0.ImportDatasetsCommand")
 def test_import_datasets_sync_argument_columns(
@@ -401,12 +412,14 @@ def test_import_datasets_sync_argument_columns(
     assert response.exit_code == 0
     expected_contents = {"dataset.yaml": "hello: world"}
     import_datasets_command.assert_called_with(
-        expected_contents, sync_columns=True, sync_metrics=False,
+        expected_contents,
+        sync_columns=True,
+        sync_metrics=False,
     )
 
 
 @mock.patch.dict(
-    "superset.config.DEFAULT_FEATURE_FLAGS", {"VERSIONED_EXPORT": False}, clear=True
+    "superset.cli.lib.feature_flags", {"VERSIONED_EXPORT": False}, clear=True
 )
 @mock.patch("superset.datasets.commands.importers.v0.ImportDatasetsCommand")
 def test_import_datasets_sync_argument_metrics(
@@ -436,7 +449,9 @@ def test_import_datasets_sync_argument_metrics(
     assert response.exit_code == 0
     expected_contents = {"dataset.yaml": "hello: world"}
     import_datasets_command.assert_called_with(
-        expected_contents, sync_columns=False, sync_metrics=True,
+        expected_contents,
+        sync_columns=False,
+        sync_metrics=True,
     )
 
 
@@ -482,3 +497,22 @@ def test_failing_import_datasets_versioned_export(
     )
 
     assert_cli_fails_properly(response, caplog)
+
+
+@pytest.mark.usefixtures("load_birth_names_dashboard_with_slices")
+@mock.patch("superset.tasks.thumbnails.cache_dashboard_thumbnail")
+def test_compute_thumbnails(thumbnail_mock, app_context, fs):
+    thumbnail_mock.return_value = None
+    runner = app.test_cli_runner()
+    dashboard = db.session.query(Dashboard).filter_by(slug="births").first()
+    response = runner.invoke(
+        superset.cli.thumbnails.compute_thumbnails,
+        ["-d", "-i", dashboard.id],
+    )
+
+    thumbnail_mock.assert_called_with(
+        None,
+        dashboard.id,
+        force=False,
+    )
+    assert response.exit_code == 0

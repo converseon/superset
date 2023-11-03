@@ -32,8 +32,7 @@ import {
   TimeFilterPlugin,
   TimeGrainFilterPlugin,
 } from 'src/filters/components';
-import {
-  FiltersConfigModal,
+import FiltersConfigModal, {
   FiltersConfigModalProps,
 } from './FiltersConfigModal';
 
@@ -124,7 +123,7 @@ const FILTER_SETTINGS_REGEX = /^filter settings$/i;
 const DEFAULT_VALUE_REGEX = /^filter has default value$/i;
 const MULTIPLE_REGEX = /^can select multiple values$/i;
 const REQUIRED_REGEX = /^filter value is required$/i;
-const HIERARCHICAL_REGEX = /^filter is hierarchical$/i;
+const DEPENDENCIES_REGEX = /^values are dependent on other filters$/i;
 const FIRST_VALUE_REGEX = /^select first filter value by default$/i;
 const INVERSE_SELECTION_REGEX = /^inverse selection$/i;
 const SEARCH_ALL_REGEX = /^dynamically search all filter values$/i;
@@ -134,7 +133,6 @@ const SAVE_REGEX = /^save$/i;
 const NAME_REQUIRED_REGEX = /^name is required$/i;
 const COLUMN_REQUIRED_REGEX = /^column is required$/i;
 const DEFAULT_VALUE_REQUIRED_REGEX = /^default value is required$/i;
-const PARENT_REQUIRED_REGEX = /^parent filter is required$/i;
 const PRE_FILTER_REQUIRED_REGEX = /^pre-filter is required$/i;
 const FILL_REQUIRED_FIELDS_REGEX = /fill all required fields to enable/;
 const TIME_RANGE_PREFILTER_REGEX = /^time range$/i;
@@ -178,7 +176,7 @@ test('renders a value filter type', () => {
 
   expect(getCheckbox(DEFAULT_VALUE_REGEX)).not.toBeChecked();
   expect(getCheckbox(REQUIRED_REGEX)).not.toBeChecked();
-  expect(getCheckbox(HIERARCHICAL_REGEX)).not.toBeChecked();
+  expect(queryCheckbox(DEPENDENCIES_REGEX)).not.toBeInTheDocument();
   expect(getCheckbox(FIRST_VALUE_REGEX)).not.toBeChecked();
   expect(getCheckbox(INVERSE_SELECTION_REGEX)).not.toBeChecked();
   expect(getCheckbox(SEARCH_ALL_REGEX)).not.toBeChecked();
@@ -207,7 +205,7 @@ test('renders a numerical range filter type', async () => {
   expect(getCheckbox(PRE_FILTER_REGEX)).not.toBeChecked();
 
   expect(queryCheckbox(MULTIPLE_REGEX)).not.toBeInTheDocument();
-  expect(queryCheckbox(HIERARCHICAL_REGEX)).not.toBeInTheDocument();
+  expect(queryCheckbox(DEPENDENCIES_REGEX)).not.toBeInTheDocument();
   expect(queryCheckbox(FIRST_VALUE_REGEX)).not.toBeInTheDocument();
   expect(queryCheckbox(INVERSE_SELECTION_REGEX)).not.toBeInTheDocument();
   expect(queryCheckbox(SEARCH_ALL_REGEX)).not.toBeInTheDocument();
@@ -302,13 +300,6 @@ test.skip('validates the default value', async () => {
   ).toBeInTheDocument();
 });
 
-test('validates the hierarchical value', async () => {
-  defaultRender();
-  userEvent.click(screen.getByText(FILTER_SETTINGS_REGEX));
-  userEvent.click(getCheckbox(HIERARCHICAL_REGEX));
-  expect(await screen.findByText(PARENT_REQUIRED_REGEX)).toBeInTheDocument();
-});
-
 test('validates the pre-filter value', async () => {
   defaultRender();
   userEvent.click(screen.getByText(FILTER_SETTINGS_REGEX));
@@ -335,7 +326,7 @@ test.skip("doesn't render time range pre-filter if there are no temporal columns
   );
 });
 
-test('filter title groups are draggable', async () => {
+test('filters are draggable', async () => {
   const nativeFilterState = [
     buildNativeFilter('NATIVE_FILTER-1', 'state', ['NATIVE_FILTER-2']),
     buildNativeFilter('NATIVE_FILTER-2', 'country', []),
@@ -350,7 +341,7 @@ test('filter title groups are draggable', async () => {
   };
   defaultRender(state, { ...props, createNewOnOpen: false });
   const draggables = document.querySelectorAll('div[draggable=true]');
-  expect(draggables.length).toBe(2);
+  expect(draggables.length).toBe(3);
 });
 
 /*
@@ -362,10 +353,91 @@ test('filter title groups are draggable', async () => {
     adds a new time grain filter type with all fields filled
     collapsible controls opens by default when it is checked
     advanced section opens by default when it has an option checked
-    deletes a filter
     disables the default value when default to first item is checked
     changes the default value options when the column changes
     switches to configuration tab when validation fails
     displays cancel message when there are pending operations
     do not displays cancel message when there are no pending operations
 */
+
+test('deletes a filter', async () => {
+  const nativeFilterState = [
+    buildNativeFilter('NATIVE_FILTER-1', 'state', ['NATIVE_FILTER-2']),
+    buildNativeFilter('NATIVE_FILTER-2', 'country', []),
+    buildNativeFilter('NATIVE_FILTER-3', 'product', []),
+  ];
+  const state = {
+    ...defaultState(),
+    dashboardInfo: {
+      metadata: { native_filter_configuration: nativeFilterState },
+    },
+    dashboardLayout,
+  };
+  const onSave = jest.fn();
+  defaultRender(state, {
+    ...props,
+    createNewOnOpen: false,
+    onSave,
+  });
+  const removeButtons = screen.getAllByRole('img', { name: 'trash' });
+  // remove NATIVE_FILTER-3 which isn't a dependancy of any other filter
+  userEvent.click(removeButtons[2]);
+  userEvent.click(screen.getByRole('button', { name: SAVE_REGEX }));
+  await waitFor(() =>
+    expect(onSave).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'NATIVE_FILTER',
+          id: 'NATIVE_FILTER-1',
+          cascadeParentIds: ['NATIVE_FILTER-2'],
+        }),
+        expect.objectContaining({
+          type: 'NATIVE_FILTER',
+          id: 'NATIVE_FILTER-2',
+          cascadeParentIds: [],
+        }),
+      ]),
+    ),
+  );
+});
+
+test('deletes a filter including dependencies', async () => {
+  const nativeFilterState = [
+    buildNativeFilter('NATIVE_FILTER-1', 'state', ['NATIVE_FILTER-2']),
+    buildNativeFilter('NATIVE_FILTER-2', 'country', []),
+    buildNativeFilter('NATIVE_FILTER-3', 'product', []),
+  ];
+  const state = {
+    ...defaultState(),
+    dashboardInfo: {
+      metadata: { native_filter_configuration: nativeFilterState },
+    },
+    dashboardLayout,
+  };
+  const onSave = jest.fn();
+  defaultRender(state, {
+    ...props,
+    createNewOnOpen: false,
+    onSave,
+  });
+  const removeButtons = screen.getAllByRole('img', { name: 'trash' });
+  // remove NATIVE_FILTER-2 which is a dependancy of NATIVE_FILTER-1
+  userEvent.click(removeButtons[1]);
+  userEvent.click(screen.getByRole('button', { name: SAVE_REGEX }));
+  await waitFor(() =>
+    expect(onSave).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'NATIVE_FILTER',
+          id: 'NATIVE_FILTER-1',
+          cascadeParentIds: [],
+        }),
+        expect.objectContaining({
+          type: 'NATIVE_FILTER',
+          id: 'NATIVE_FILTER-3',
+          cascadeParentIds: [],
+        }),
+      ]),
+    ),
+  );
+});

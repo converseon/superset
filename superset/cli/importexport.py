@@ -18,7 +18,7 @@ import logging
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 from zipfile import is_zipfile, ZipFile
 
 import click
@@ -34,12 +34,19 @@ logger = logging.getLogger(__name__)
 
 
 @click.command()
+@with_appcontext
 @click.argument("directory")
 @click.option(
-    "--overwrite", "-o", is_flag=True, help="Overwriting existing metadata definitions",
+    "--overwrite",
+    "-o",
+    is_flag=True,
+    help="Overwriting existing metadata definitions",
 )
 @click.option(
-    "--force", "-f", is_flag=True, help="Force load data even if table already exists",
+    "--force",
+    "-f",
+    is_flag=True,
+    help="Force load data even if table already exists",
 )
 def import_directory(directory: str, overwrite: bool, force: bool) -> None:
     """Imports configs from a given directory"""
@@ -47,7 +54,9 @@ def import_directory(directory: str, overwrite: bool, force: bool) -> None:
     from superset.examples.utils import load_configs_from_directory
 
     load_configs_from_directory(
-        root=Path(directory), overwrite=overwrite, force_data=force,
+        root=Path(directory),
+        overwrite=overwrite,
+        force_data=force,
     )
 
 
@@ -56,7 +65,9 @@ if feature_flags.get("VERSIONED_EXPORT"):
     @click.command()
     @with_appcontext
     @click.option(
-        "--dashboard-file", "-f", help="Specify the the file to export to",
+        "--dashboard-file",
+        "-f",
+        help="Specify the file to export to",
     )
     def export_dashboards(dashboard_file: Optional[str] = None) -> None:
         """Export dashboards to ZIP file"""
@@ -88,7 +99,9 @@ if feature_flags.get("VERSIONED_EXPORT"):
     @click.command()
     @with_appcontext
     @click.option(
-        "--datasource-file", "-f", help="Specify the the file to export to",
+        "--datasource-file",
+        "-f",
+        help="Specify the file to export to",
     )
     def export_datasources(datasource_file: Optional[str] = None) -> None:
         """Export datasources to ZIP file"""
@@ -118,7 +131,9 @@ if feature_flags.get("VERSIONED_EXPORT"):
     @click.command()
     @with_appcontext
     @click.option(
-        "--path", "-p", help="Path to a single ZIP file",
+        "--path",
+        "-p",
+        help="Path to a single ZIP file",
     )
     @click.option(
         "--username",
@@ -154,7 +169,9 @@ if feature_flags.get("VERSIONED_EXPORT"):
     @click.command()
     @with_appcontext
     @click.option(
-        "--path", "-p", help="Path to a single ZIP file",
+        "--path",
+        "-p",
+        help="Path to a single ZIP file",
     )
     def import_datasources(path: str) -> None:
         """Import datasources from ZIP file"""
@@ -179,7 +196,6 @@ if feature_flags.get("VERSIONED_EXPORT"):
             )
             sys.exit(1)
 
-
 else:
 
     @click.command()
@@ -188,7 +204,7 @@ else:
         "--dashboard-file",
         "-f",
         default=None,
-        help="Specify the the file to export to",
+        help="Specify the file to export to",
     )
     @click.option(
         "--print_stdout",
@@ -218,7 +234,7 @@ else:
         "--datasource-file",
         "-f",
         default=None,
-        help="Specify the the file to export to",
+        help="Specify the file to export to",
     )
     @click.option(
         "--print_stdout",
@@ -291,7 +307,7 @@ else:
         from superset.dashboards.commands.importers.v0 import ImportDashboardsCommand
 
         path_object = Path(path)
-        files: List[Path] = []
+        files: list[Path] = []
         if path_object.is_file():
             files.append(path_object)
         elif path_object.exists() and not recursive:
@@ -323,7 +339,7 @@ else:
         "-s",
         "sync",
         default="",
-        help="comma seperated list of element types to synchronize "
+        help="comma separated list of element types to synchronize "
         'e.g. "metrics,columns" deletes metrics and columns in the DB '
         "that are not specified in the YAML file",
     )
@@ -344,7 +360,7 @@ else:
         sync_metrics = "metrics" in sync_array
 
         path_object = Path(path)
-        files: List[Path] = []
+        files: list[Path] = []
         if path_object.is_file():
             files.append(path_object)
         elif path_object.exists() and not recursive:

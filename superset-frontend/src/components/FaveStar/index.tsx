@@ -17,13 +17,12 @@
  * under the License.
  */
 
-import React, { useCallback } from 'react';
-import { t, styled } from '@superset-ui/core';
+import React, { useCallback, useEffect } from 'react';
+import { css, t, styled } from '@superset-ui/core';
 import { Tooltip } from 'src/components/Tooltip';
-import { useComponentDidMount } from 'src/hooks/useComponentDidMount';
 import Icons from 'src/components/Icons';
 
-interface FaveStarProps {
+export interface FaveStarProps {
   itemId: number;
   isStarred?: boolean;
   showTooltip?: boolean;
@@ -32,9 +31,11 @@ interface FaveStarProps {
 }
 
 const StyledLink = styled.a`
-  font-size: ${({ theme }) => theme.typography.sizes.xl}px;
-  display: flex;
-  padding: 0 0 0 0.5em;
+  ${({ theme }) => css`
+    font-size: ${theme.typography.sizes.xl}px;
+    display: flex;
+    padding: 0 0 0 ${theme.gridUnit * 2}px;
+  `};
 `;
 
 const FaveStar = ({
@@ -44,11 +45,9 @@ const FaveStar = ({
   saveFaveStar,
   fetchFaveStar,
 }: FaveStarProps) => {
-  useComponentDidMount(() => {
-    if (fetchFaveStar) {
-      fetchFaveStar(itemId);
-    }
-  });
+  useEffect(() => {
+    fetchFaveStar?.(itemId);
+  }, [fetchFaveStar, itemId]);
 
   const onClick = useCallback(
     (e: React.MouseEvent) => {
@@ -66,11 +65,7 @@ const FaveStar = ({
       data-test="fave-unfave-icon"
       role="button"
     >
-      {isStarred ? (
-        <Icons.FavoriteSelected iconSize="xxl" />
-      ) : (
-        <Icons.FavoriteUnselected iconSize="xxl" />
-      )}
+      {isStarred ? <Icons.FavoriteSelected /> : <Icons.FavoriteUnselected />}
     </StyledLink>
   );
 

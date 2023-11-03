@@ -68,7 +68,7 @@ class TestExportDashboardsCommand(SupersetTestCase):
 
         expected_paths = {
             "metadata.yaml",
-            "dashboards/World_Banks_Data.yaml",
+            f"dashboards/World_Banks_Data_{example_dashboard.id}.yaml",
             "datasets/examples/wb_health_population.yaml",
             "databases/examples.yaml",
         }
@@ -77,7 +77,9 @@ class TestExportDashboardsCommand(SupersetTestCase):
             expected_paths.add(f"charts/{chart_slug}_{chart.id}.yaml")
         assert expected_paths == set(contents.keys())
 
-        metadata = yaml.safe_load(contents["dashboards/World_Banks_Data.yaml"])
+        metadata = yaml.safe_load(
+            contents[f"dashboards/World_Banks_Data_{example_dashboard.id}.yaml"]
+        )
 
         # remove chart UUIDs from metadata so we can compare
         for chart_info in metadata["position"].values():
@@ -90,6 +92,9 @@ class TestExportDashboardsCommand(SupersetTestCase):
             "description": None,
             "css": None,
             "slug": "world_health",
+            "certified_by": None,
+            "certification_details": None,
+            "published": False,
             "uuid": str(example_dashboard.uuid),
             "position": {
                 "CHART-36bfc934": {
@@ -165,12 +170,6 @@ class TestExportDashboardsCommand(SupersetTestCase):
                 "CHART-a4808bba": {
                     "children": [],
                     "id": "CHART-a4808bba",
-                    "meta": {"height": 50, "sliceName": "Treemap", "width": 8},
-                    "type": "CHART",
-                },
-                "CHART-3nc0d8sk": {
-                    "children": [],
-                    "id": "CHART-3nc0d8sk",
                     "meta": {"height": 50, "sliceName": "Treemap", "width": 8},
                     "type": "CHART",
                 },
@@ -275,12 +274,17 @@ class TestExportDashboardsCommand(SupersetTestCase):
         command = ExportDashboardsCommand([example_dashboard.id])
         contents = dict(command.run())
 
-        metadata = yaml.safe_load(contents["dashboards/World_Banks_Data.yaml"])
+        metadata = yaml.safe_load(
+            contents[f"dashboards/World_Banks_Data_{example_dashboard.id}.yaml"]
+        )
         assert list(metadata.keys()) == [
             "dashboard_title",
             "description",
             "css",
             "slug",
+            "certified_by",
+            "certification_details",
+            "published",
             "uuid",
             "position",
             "metadata",
@@ -290,7 +294,7 @@ class TestExportDashboardsCommand(SupersetTestCase):
     @pytest.mark.usefixtures("load_world_bank_dashboard_with_slices")
     @patch("superset.dashboards.commands.export.suffix")
     def test_append_charts(self, mock_suffix):
-        """Test that oprhaned charts are added to the dashbaord position"""
+        """Test that orphaned charts are added to the dashboard position"""
         # return deterministic IDs
         mock_suffix.side_effect = (str(i) for i in itertools.count(1))
 
@@ -423,6 +427,28 @@ class TestExportDashboardsCommand(SupersetTestCase):
             "DASHBOARD_VERSION_KEY": "v2",
         }
 
+    @pytest.mark.usefixtures("load_world_bank_dashboard_with_slices")
+    @patch("superset.security.manager.g")
+    @patch("superset.views.base.g")
+    def test_export_dashboard_command_no_related(self, mock_g1, mock_g2):
+        """
+        Test that only the dashboard is exported when export_related=False.
+        """
+        mock_g1.user = security_manager.find_user("admin")
+        mock_g2.user = security_manager.find_user("admin")
+
+        example_dashboard = (
+            db.session.query(Dashboard).filter_by(slug="world_health").one()
+        )
+        command = ExportDashboardsCommand([example_dashboard.id], export_related=False)
+        contents = dict(command.run())
+
+        expected_paths = {
+            "metadata.yaml",
+            f"dashboards/World_Banks_Data_{example_dashboard.id}.yaml",
+        }
+        assert expected_paths == set(contents.keys())
+
 
 class TestImportDashboardsCommand(SupersetTestCase):
     def test_import_v0_dashboard_cli_export(self):
@@ -465,9 +491,10 @@ class TestImportDashboardsCommand(SupersetTestCase):
         db.session.commit()
 
     @patch("superset.dashboards.commands.importers.v1.utils.g")
-    def test_import_v1_dashboard(self, mock_g):
+    @patch("superset.security.manager.g")
+    def test_import_v1_dashboard(self, sm_g, utils_g):
         """Test that we can import a dashboard"""
-        mock_g.user = security_manager.find_user("admin")
+        admin = sm_g.user = utils_g.user = security_manager.find_user("admin")
         contents = {
             "metadata.yaml": yaml.safe_dump(dashboard_metadata_config),
             "databases/imported_database.yaml": yaml.safe_dump(database_config),
@@ -544,23 +571,25 @@ class TestImportDashboardsCommand(SupersetTestCase):
         dataset = chart.table
         assert str(dataset.uuid) == dataset_config["uuid"]
 
+        assert chart.query_context is None
+        assert json.loads(chart.params)["datasource"] == dataset.uid
+
         database = dataset.database
         assert str(database.uuid) == database_config["uuid"]
 
-        assert dashboard.owners == [mock_g.user]
+        assert dashboard.owners == [admin]
 
-        dashboard.owners = []
-        chart.owners = []
-        dataset.owners = []
-        database.owners = []
         db.session.delete(dashboard)
         db.session.delete(chart)
         db.session.delete(dataset)
         db.session.delete(database)
         db.session.commit()
 
-    def test_import_v1_dashboard_multiple(self):
+    @patch("superset.security.manager.g")
+    def test_import_v1_dashboard_multiple(self, mock_g):
         """Test that a dashboard can be imported multiple times"""
+        mock_g.user = security_manager.find_user("admin")
+
         num_dashboards = db.session.query(Dashboard).count()
 
         contents = {

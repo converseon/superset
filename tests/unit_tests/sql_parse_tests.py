@@ -14,25 +14,32 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+# pylint: disable=invalid-name, redefined-outer-name, unused-argument, protected-access, too-many-lines
 
-# pylint: disable=invalid-name
-
-import unittest
-from typing import Set
+from typing import Optional
 
 import pytest
 import sqlparse
+from pytest_mock import MockerFixture
+from sqlalchemy import text
+from sqlparse.sql import Identifier, Token, TokenList
+from sqlparse.tokens import Name
 
 from superset.exceptions import QueryClauseValidationException
 from superset.sql_parse import (
+    add_table_name,
+    extract_table_references,
+    get_rls_for_table,
+    has_table_query,
+    insert_rls,
     ParsedQuery,
+    sanitize_clause,
     strip_comments_from_sql,
     Table,
-    validate_filter_clause,
 )
 
 
-def extract_tables(query: str) -> Set[Table]:
+def extract_tables(query: str) -> set[Table]:
     """
     Helper function to extract tables referenced in a query.
     """
@@ -258,13 +265,9 @@ def test_extract_tables_illdefined() -> None:
     assert extract_tables("SELECT * FROM catalogname..tbname") == set()
 
 
-@unittest.skip("Requires sqlparse>=3.1")
 def test_extract_tables_show_tables_from() -> None:
     """
     Test ``SHOW TABLES FROM``.
-
-    This is currently broken in the pinned version of sqlparse, and fixed in
-    ``sqlparse>=3.1``. However, ``sqlparse==3.1`` breaks some sql formatting.
     """
     assert extract_tables("SHOW TABLES FROM s1 like '%order%'") == set()
 
@@ -671,7 +674,7 @@ WHERE TABLE_SCHEMA like "%bi%"),0x7e)));
             """
 select (extractvalue(1,concat(0x7e,(select GROUP_CONCAT(COLUMN_NAME)
 from INFORMATION_SCHEMA.COLUMNS
-WHERE TABLE_NAME="bi_achivement_daily"),0x7e)));
+WHERE TABLE_NAME="bi_achievement_daily"),0x7e)));
 """
         )
         == {Table("COLUMNS", "INFORMATION_SCHEMA")}
@@ -1004,20 +1007,123 @@ FROM foo f"""
     assert sql.is_select()
 
 
+def test_cte_is_select_lowercase() -> None:
+    """
+    Some CTEs with lowercase select are not correctly identified as SELECTS.
+    """
+    sql = ParsedQuery(
+        """WITH foo AS(
+select
+  FLOOR(__time TO WEEK) AS "week",
+  name,
+  COUNT(DISTINCT user_id) AS "unique_users"
+FROM "druid"."my_table"
+GROUP BY 1,2
+)
+select
+  f.week,
+  f.name,
+  f.unique_users
+FROM foo f"""
+    )
+    assert sql.is_select()
+
+
+def test_cte_insert_is_not_select() -> None:
+    """
+    Some CTEs with lowercase select are not correctly identified as SELECTS.
+    """
+    sql = ParsedQuery(
+        """WITH foo AS(
+        INSERT INTO foo (id) VALUES (1) RETURNING 1
+        ) select * FROM foo f"""
+    )
+    assert sql.is_select() is False
+
+
+def test_cte_delete_is_not_select() -> None:
+    """
+    Some CTEs with lowercase select are not correctly identified as SELECTS.
+    """
+    sql = ParsedQuery(
+        """WITH foo AS(
+        DELETE FROM foo RETURNING *
+        ) select * FROM foo f"""
+    )
+    assert sql.is_select() is False
+
+
+def test_cte_is_not_select_lowercase() -> None:
+    """
+    Some CTEs with lowercase select are not correctly identified as SELECTS.
+    """
+    sql = ParsedQuery(
+        """WITH foo AS(
+        insert into foo (id) values (1) RETURNING 1
+        ) select * FROM foo f"""
+    )
+    assert sql.is_select() is False
+
+
+def test_cte_with_multiple_selects() -> None:
+    sql = ParsedQuery(
+        "WITH a AS ( select * from foo1 ), b as (select * from foo2) SELECT * FROM a;"
+    )
+    assert sql.is_select()
+
+
+def test_cte_with_multiple_with_non_select() -> None:
+    sql = ParsedQuery(
+        """WITH a AS (
+        select * from foo1
+        ), b as (
+        update foo2 set id=2
+        ) SELECT * FROM a"""
+    )
+    assert sql.is_select() is False
+    sql = ParsedQuery(
+        """WITH a AS (
+         update foo2 set name=2
+         ),
+        b as (
+        select * from foo1
+        ) SELECT * FROM a"""
+    )
+    assert sql.is_select() is False
+    sql = ParsedQuery(
+        """WITH a AS (
+         update foo2 set name=2
+         ),
+        b as (
+        update foo1 set name=2
+        ) SELECT * FROM a"""
+    )
+    assert sql.is_select() is False
+    sql = ParsedQuery(
+        """WITH a AS (
+        INSERT INTO foo (id) VALUES (1)
+        ),
+        b as (
+        select 1
+        ) SELECT * FROM a"""
+    )
+    assert sql.is_select() is False
+
+
 def test_unknown_select() -> None:
     """
     Test that `is_select` works when sqlparse fails to identify the type.
     """
     sql = "WITH foo AS(SELECT 1) SELECT 1"
-    assert sqlparse.parse(sql)[0].get_type() == "UNKNOWN"
+    assert sqlparse.parse(sql)[0].get_type() == "SELECT"
     assert ParsedQuery(sql).is_select()
 
     sql = "WITH foo AS(SELECT 1) INSERT INTO my_table (a) VALUES (1)"
-    assert sqlparse.parse(sql)[0].get_type() == "UNKNOWN"
+    assert sqlparse.parse(sql)[0].get_type() == "INSERT"
     assert not ParsedQuery(sql).is_select()
 
     sql = "WITH foo AS(SELECT 1) DELETE FROM my_table"
-    assert sqlparse.parse(sql)[0].get_type() == "UNKNOWN"
+    assert sqlparse.parse(sql)[0].get_type() == "DELETE"
     assert not ParsedQuery(sql).is_select()
 
 
@@ -1100,18 +1206,10 @@ SELECT * FROM birth_names LIMIT 1
 def test_sqlparse_formatting():
     """
     Test that ``from_unixtime`` is formatted correctly.
-
-    ``sqlparse==0.3.1`` has a bug and removes space between ``from`` and
-    ``from_unixtime``, resulting in::
-
-        SELECT extract(HOUR
-        fromfrom_unixtime(hour_ts)
-        AT TIME ZONE 'America/Los_Angeles')
-        from table
-
     """
     assert sqlparse.format(
-        "SELECT extract(HOUR from from_unixtime(hour_ts) AT TIME ZONE 'America/Los_Angeles') from table",
+        "SELECT extract(HOUR from from_unixtime(hour_ts) "
+        "AT TIME ZONE 'America/Los_Angeles') from table",
         reindent=True,
     ) == (
         "SELECT extract(HOUR\n               from from_unixtime(hour_ts) "
@@ -1137,55 +1235,401 @@ def test_strip_comments_from_sql() -> None:
     )
 
 
-def test_validate_filter_clause_valid():
+def test_sanitize_clause_valid():
     # regular clauses
-    assert validate_filter_clause("col = 1") is None
-    assert validate_filter_clause("1=\t\n1") is None
-    assert validate_filter_clause("(col = 1)") is None
-    assert validate_filter_clause("(col1 = 1) AND (col2 = 2)") is None
+    assert sanitize_clause("col = 1") == "col = 1"
+    assert sanitize_clause("1=\t\n1") == "1=\t\n1"
+    assert sanitize_clause("(col = 1)") == "(col = 1)"
+    assert sanitize_clause("(col1 = 1) AND (col2 = 2)") == "(col1 = 1) AND (col2 = 2)"
+    assert sanitize_clause("col = 'abc' -- comment") == "col = 'abc' -- comment\n"
 
-    # Valid literal values that appear to be invalid
-    assert validate_filter_clause("col = 'col1 = 1) AND (col2 = 2'") is None
-    assert validate_filter_clause("col = 'select 1; select 2'") is None
-    assert validate_filter_clause("col = 'abc -- comment'") is None
+    # Valid literal values that at could be flagged as invalid by a naive query parser
+    assert (
+        sanitize_clause("col = 'col1 = 1) AND (col2 = 2'")
+        == "col = 'col1 = 1) AND (col2 = 2'"
+    )
+    assert sanitize_clause("col = 'select 1; select 2'") == "col = 'select 1; select 2'"
+    assert sanitize_clause("col = 'abc -- comment'") == "col = 'abc -- comment'"
 
 
-def test_validate_filter_clause_closing_unclosed():
+def test_sanitize_clause_closing_unclosed():
     with pytest.raises(QueryClauseValidationException):
-        validate_filter_clause("col1 = 1) AND (col2 = 2)")
+        sanitize_clause("col1 = 1) AND (col2 = 2)")
 
 
-def test_validate_filter_clause_unclosed():
+def test_sanitize_clause_unclosed():
     with pytest.raises(QueryClauseValidationException):
-        validate_filter_clause("(col1 = 1) AND (col2 = 2")
+        sanitize_clause("(col1 = 1) AND (col2 = 2")
 
 
-def test_validate_filter_clause_closing_and_unclosed():
+def test_sanitize_clause_closing_and_unclosed():
     with pytest.raises(QueryClauseValidationException):
-        validate_filter_clause("col1 = 1) AND (col2 = 2")
+        sanitize_clause("col1 = 1) AND (col2 = 2")
 
 
-def test_validate_filter_clause_closing_and_unclosed_nested():
+def test_sanitize_clause_closing_and_unclosed_nested():
     with pytest.raises(QueryClauseValidationException):
-        validate_filter_clause("(col1 = 1)) AND ((col2 = 2)")
+        sanitize_clause("(col1 = 1)) AND ((col2 = 2)")
 
 
-def test_validate_filter_clause_multiple():
+def test_sanitize_clause_multiple():
     with pytest.raises(QueryClauseValidationException):
-        validate_filter_clause("TRUE; SELECT 1")
-
-
-def test_validate_filter_clause_comment():
-    with pytest.raises(QueryClauseValidationException):
-        validate_filter_clause("1 = 1 -- comment")
-
-
-def test_validate_filter_clause_subquery_comment():
-    with pytest.raises(QueryClauseValidationException):
-        validate_filter_clause("(1 = 1 -- comment\n)")
+        sanitize_clause("TRUE; SELECT 1")
 
 
 def test_sqlparse_issue_652():
     stmt = sqlparse.parse(r"foo = '\' AND bar = 'baz'")[0]
     assert len(stmt.tokens) == 5
     assert str(stmt.tokens[0]) == "foo = '\\'"
+
+
+@pytest.mark.parametrize(
+    "sql,expected",
+    [
+        ("SELECT * FROM table", True),
+        ("SELECT a FROM (SELECT 1 AS a) JOIN (SELECT * FROM table)", True),
+        ("(SELECT COUNT(DISTINCT name) AS foo FROM    birth_names)", True),
+        ("COUNT(*)", False),
+        ("SELECT a FROM (SELECT 1 AS a)", False),
+        ("SELECT a FROM (SELECT 1 AS a) JOIN table", True),
+        ("SELECT * FROM (SELECT 1 AS foo, 2 AS bar) ORDER BY foo ASC, bar", False),
+        ("SELECT * FROM other_table", True),
+        ("extract(HOUR from from_unixtime(hour_ts)", False),
+        ("(SELECT * FROM table)", True),
+        ("(SELECT COUNT(DISTINCT name) from birth_names)", True),
+        (
+            "(SELECT table_name FROM information_schema.tables WHERE table_name LIKE '%user%' LIMIT 1)",
+            True,
+        ),
+        (
+            "(SELECT table_name FROM /**/ information_schema.tables WHERE table_name LIKE '%user%' LIMIT 1)",
+            True,
+        ),
+    ],
+)
+def test_has_table_query(sql: str, expected: bool) -> None:
+    """
+    Test if a given statement queries a table.
+
+    This is used to prevent ad-hoc metrics from querying unauthorized tables, bypassing
+    row-level security.
+    """
+    statement = sqlparse.parse(sql)[0]
+    assert has_table_query(statement) == expected
+
+
+@pytest.mark.parametrize(
+    "sql,table,rls,expected",
+    [
+        # Basic test: append RLS (some_table.id=42) to an existing WHERE clause.
+        (
+            "SELECT * FROM some_table WHERE 1=1",
+            "some_table",
+            "id=42",
+            "SELECT * FROM some_table WHERE ( 1=1) AND some_table.id=42",
+        ),
+        # Any existing predicates MUST to be wrapped in parenthesis because AND has higher
+        # precedence than OR. If the RLS it `1=0` and we didn't add parenthesis a user
+        # could bypass it by crafting a query with `WHERE TRUE OR FALSE`, since
+        # `WHERE TRUE OR FALSE AND 1=0` evaluates to `WHERE TRUE OR (FALSE AND 1=0)`.
+        (
+            "SELECT * FROM some_table WHERE TRUE OR FALSE",
+            "some_table",
+            "1=0",
+            "SELECT * FROM some_table WHERE ( TRUE OR FALSE) AND 1=0",
+        ),
+        # Here "table" is a reserved word; since sqlparse is too aggressive when
+        # characterizing reserved words we need to support them even when not quoted.
+        (
+            "SELECT * FROM table WHERE 1=1",
+            "table",
+            "id=42",
+            "SELECT * FROM table WHERE ( 1=1) AND table.id=42",
+        ),
+        # RLS is only applied to queries reading from the associated table.
+        (
+            "SELECT * FROM table WHERE 1=1",
+            "other_table",
+            "id=42",
+            "SELECT * FROM table WHERE 1=1",
+        ),
+        (
+            "SELECT * FROM other_table WHERE 1=1",
+            "table",
+            "id=42",
+            "SELECT * FROM other_table WHERE 1=1",
+        ),
+        # If there's no pre-existing WHERE clause we create one.
+        (
+            "SELECT * FROM table",
+            "table",
+            "id=42",
+            "SELECT * FROM table WHERE table.id=42",
+        ),
+        (
+            "SELECT * FROM some_table",
+            "some_table",
+            "id=42",
+            "SELECT * FROM some_table WHERE some_table.id=42",
+        ),
+        (
+            "SELECT * FROM table ORDER BY id",
+            "table",
+            "id=42",
+            "SELECT * FROM table  WHERE table.id=42 ORDER BY id",
+        ),
+        (
+            "SELECT * FROM some_table;",
+            "some_table",
+            "id=42",
+            "SELECT * FROM some_table WHERE some_table.id=42 ;",
+        ),
+        (
+            "SELECT * FROM some_table       ;",
+            "some_table",
+            "id=42",
+            "SELECT * FROM some_table        WHERE some_table.id=42 ;",
+        ),
+        (
+            "SELECT * FROM some_table       ",
+            "some_table",
+            "id=42",
+            "SELECT * FROM some_table        WHERE some_table.id=42",
+        ),
+        # We add the RLS even if it's already present, to be conservative. It should have
+        # no impact on the query, and it's easier than testing if the RLS is already
+        # present (it could be present in an OR clause, eg).
+        (
+            "SELECT * FROM table WHERE 1=1 AND table.id=42",
+            "table",
+            "id=42",
+            "SELECT * FROM table WHERE ( 1=1 AND table.id=42) AND table.id=42",
+        ),
+        (
+            (
+                "SELECT * FROM table JOIN other_table ON "
+                "table.id = other_table.id AND other_table.id=42"
+            ),
+            "other_table",
+            "id=42",
+            (
+                "SELECT * FROM table JOIN other_table ON other_table.id=42 "
+                "AND ( table.id = other_table.id AND other_table.id=42 )"
+            ),
+        ),
+        (
+            "SELECT * FROM table WHERE 1=1 AND id=42",
+            "table",
+            "id=42",
+            "SELECT * FROM table WHERE ( 1=1 AND id=42) AND table.id=42",
+        ),
+        # For joins we apply the RLS to the ON clause, since it's easier and prevents
+        # leaking information about number of rows on OUTER JOINs.
+        (
+            "SELECT * FROM table JOIN other_table ON table.id = other_table.id",
+            "other_table",
+            "id=42",
+            (
+                "SELECT * FROM table JOIN other_table ON other_table.id=42 "
+                "AND ( table.id = other_table.id )"
+            ),
+        ),
+        (
+            (
+                "SELECT * FROM table JOIN other_table ON table.id = other_table.id "
+                "WHERE 1=1"
+            ),
+            "other_table",
+            "id=42",
+            (
+                "SELECT * FROM table JOIN other_table ON other_table.id=42 "
+                "AND ( table.id = other_table.id  ) WHERE 1=1"
+            ),
+        ),
+        # Subqueries also work, as expected.
+        (
+            "SELECT * FROM (SELECT * FROM other_table)",
+            "other_table",
+            "id=42",
+            "SELECT * FROM (SELECT * FROM other_table WHERE other_table.id=42 )",
+        ),
+        # As well as UNION.
+        (
+            "SELECT * FROM table UNION ALL SELECT * FROM other_table",
+            "table",
+            "id=42",
+            "SELECT * FROM table  WHERE table.id=42 UNION ALL SELECT * FROM other_table",
+        ),
+        (
+            "SELECT * FROM table UNION ALL SELECT * FROM other_table",
+            "other_table",
+            "id=42",
+            (
+                "SELECT * FROM table UNION ALL "
+                "SELECT * FROM other_table WHERE other_table.id=42"
+            ),
+        ),
+        # When comparing fully qualified table names (eg, schema.table) to simple names
+        # (eg, table) we are also conservative, assuming the schema is the same, since
+        # we don't have information on the default schema.
+        (
+            "SELECT * FROM schema.table_name",
+            "table_name",
+            "id=42",
+            "SELECT * FROM schema.table_name WHERE table_name.id=42",
+        ),
+        (
+            "SELECT * FROM schema.table_name",
+            "schema.table_name",
+            "id=42",
+            "SELECT * FROM schema.table_name WHERE schema.table_name.id=42",
+        ),
+        (
+            "SELECT * FROM table_name",
+            "schema.table_name",
+            "id=42",
+            "SELECT * FROM table_name WHERE schema.table_name.id=42",
+        ),
+    ],
+)
+def test_insert_rls(
+    mocker: MockerFixture, sql: str, table: str, rls: str, expected: str
+) -> None:
+    """
+    Insert into a statement a given RLS condition associated with a table.
+    """
+    condition = sqlparse.parse(rls)[0]
+    add_table_name(condition, table)
+
+    # pylint: disable=unused-argument
+    def get_rls_for_table(
+        candidate: Token,
+        database_id: int,
+        default_schema: str,
+    ) -> Optional[TokenList]:
+        """
+        Return the RLS ``condition`` if ``candidate`` matches ``table``.
+        """
+        # compare ignoring schema
+        for left, right in zip(str(candidate).split(".")[::-1], table.split(".")[::-1]):
+            if left != right:
+                return None
+        return condition
+
+    mocker.patch("superset.sql_parse.get_rls_for_table", new=get_rls_for_table)
+
+    statement = sqlparse.parse(sql)[0]
+    assert (
+        str(
+            insert_rls(token_list=statement, database_id=1, default_schema="my_schema")
+        ).strip()
+        == expected.strip()
+    )
+
+
+@pytest.mark.parametrize(
+    "rls,table,expected",
+    [
+        ("id=42", "users", "users.id=42"),
+        ("users.id=42", "users", "users.id=42"),
+        ("schema.users.id=42", "users", "schema.users.id=42"),
+        ("false", "users", "false"),
+    ],
+)
+def test_add_table_name(rls: str, table: str, expected: str) -> None:
+    condition = sqlparse.parse(rls)[0]
+    add_table_name(condition, table)
+    assert str(condition) == expected
+
+
+def test_get_rls_for_table(mocker: MockerFixture) -> None:
+    """
+    Tests for ``get_rls_for_table``.
+    """
+    candidate = Identifier([Token(Name, "some_table")])
+    db = mocker.patch("superset.db")
+    dataset = db.session.query().filter().one_or_none()
+    dataset.__str__.return_value = "some_table"
+
+    dataset.get_sqla_row_level_filters.return_value = [text("organization_id = 1")]
+    assert (
+        str(get_rls_for_table(candidate, 1, "public"))
+        == "some_table.organization_id = 1"
+    )
+
+    dataset.get_sqla_row_level_filters.return_value = [
+        text("organization_id = 1"),
+        text("foo = 'bar'"),
+    ]
+    assert (
+        str(get_rls_for_table(candidate, 1, "public"))
+        == "some_table.organization_id = 1 AND some_table.foo = 'bar'"
+    )
+
+    dataset.get_sqla_row_level_filters.return_value = []
+    assert get_rls_for_table(candidate, 1, "public") is None
+
+
+def test_extract_table_references(mocker: MockerFixture) -> None:
+    """
+    Test the ``extract_table_references`` helper function.
+    """
+    assert extract_table_references("SELECT 1", "trino") == set()
+    assert extract_table_references("SELECT 1 FROM some_table", "trino") == {
+        Table(table="some_table", schema=None, catalog=None)
+    }
+    assert extract_table_references("SELECT {{ jinja }} FROM some_table", "trino") == {
+        Table(table="some_table", schema=None, catalog=None)
+    }
+    assert extract_table_references(
+        "SELECT 1 FROM some_catalog.some_schema.some_table", "trino"
+    ) == {Table(table="some_table", schema="some_schema", catalog="some_catalog")}
+
+    # with identifier quotes
+    assert extract_table_references(
+        "SELECT 1 FROM `some_catalog`.`some_schema`.`some_table`", "mysql"
+    ) == {Table(table="some_table", schema="some_schema", catalog="some_catalog")}
+    assert extract_table_references(
+        'SELECT 1 FROM "some_catalog".some_schema."some_table"', "trino"
+    ) == {Table(table="some_table", schema="some_schema", catalog="some_catalog")}
+
+    assert extract_table_references(
+        "SELECT * FROM some_table JOIN other_table ON some_table.id = other_table.id",
+        "trino",
+    ) == {
+        Table(table="some_table", schema=None, catalog=None),
+        Table(table="other_table", schema=None, catalog=None),
+    }
+
+    # test falling back to sqlparse
+    logger = mocker.patch("superset.sql_parse.logger")
+    sql = "SELECT * FROM table UNION ALL SELECT * FROM other_table"
+    assert extract_table_references(
+        sql,
+        "trino",
+    ) == {Table(table="other_table", schema=None, catalog=None)}
+    logger.warning.assert_called_once()
+
+    logger = mocker.patch("superset.migrations.shared.utils.logger")
+    sql = "SELECT * FROM table UNION ALL SELECT * FROM other_table"
+    assert extract_table_references(sql, "trino", show_warning=False) == {
+        Table(table="other_table", schema=None, catalog=None)
+    }
+    logger.warning.assert_not_called()
+
+
+def test_is_select() -> None:
+    """
+    Test `is_select`.
+    """
+    assert not ParsedQuery("SELECT 1; DROP DATABASE superset").is_select()
+    assert ParsedQuery(
+        "with base as(select id from table1 union all select id from table2) select * from base"
+    ).is_select()
+    assert ParsedQuery(
+        """
+WITH t AS (
+    SELECT 1 UNION ALL SELECT 2
+)
+SELECT * FROM t"""
+    ).is_select()

@@ -18,7 +18,7 @@
  */
 import React from 'react';
 import { ClassNames } from '@emotion/react';
-import { styled, useTheme } from '@superset-ui/core';
+import { styled, useTheme, t } from '@superset-ui/core';
 import { Tooltip } from 'src/components/Tooltip';
 
 const StyledTooltip = (props: any) => {
@@ -60,9 +60,9 @@ const iconMap = {
 };
 
 const tooltipTitleMap = {
-  pk: 'Primary key',
-  fk: 'Foreign key',
-  index: 'Index',
+  pk: t('Primary key'),
+  fk: t('Foreign key'),
+  index: t('Index'),
 };
 
 export type ColumnKeyTypeType = keyof typeof tooltipTitleMap;
@@ -74,6 +74,10 @@ interface ColumnElementProps {
     type: string;
   };
 }
+
+const NowrapDiv = styled.div`
+  white-space: nowrap;
+`;
 
 const ColumnElement = ({ column }: ColumnElementProps) => {
   let columnName: React.ReactNode = column.name;
@@ -105,9 +109,9 @@ const ColumnElement = ({ column }: ColumnElementProps) => {
         {columnName}
         {icons}
       </div>
-      <div className="pull-right text-muted">
+      <NowrapDiv className="pull-right text-muted">
         <small> {column.type}</small>
-      </div>
+      </NowrapDiv>
     </div>
   );
 };

@@ -17,7 +17,8 @@
  * under the License.
  */
 
-import { Behavior } from '../types/Base';
+import { Behavior, ChartLabel } from '../types/Base';
+import { ParseMethod } from '../../connection';
 
 interface LookupTable {
   [key: string]: boolean;
@@ -40,10 +41,16 @@ export interface ChartMetadataConfig {
   thumbnail: string;
   useLegacyApi?: boolean;
   behaviors?: Behavior[];
-  deprecated?: boolean;
   exampleGallery?: ExampleImage[];
   tags?: string[];
   category?: string | null;
+  // deprecated: true hides a chart from all viz picker interactions.
+  deprecated?: boolean;
+  // label: ChartLabel.DEPRECATED which will display a "deprecated" label on the chart.
+  label?: ChartLabel | null;
+  labelExplanation?: string | null;
+  queryObjectCount?: number;
+  parseMethod?: ParseMethod;
 }
 
 export default class ChartMetadata {
@@ -71,13 +78,21 @@ export default class ChartMetadata {
 
   enableNoResults: boolean;
 
-  deprecated: boolean;
-
   exampleGallery: ExampleImage[];
 
   tags: string[];
 
   category: string | null;
+
+  deprecated?: boolean;
+
+  label?: ChartLabel | null;
+
+  labelExplanation?: string | null;
+
+  queryObjectCount: number;
+
+  parseMethod: ParseMethod;
 
   constructor(config: ChartMetadataConfig) {
     const {
@@ -92,10 +107,14 @@ export default class ChartMetadata {
       behaviors = [],
       datasourceCount = 1,
       enableNoResults = true,
-      deprecated = false,
       exampleGallery = [],
       tags = [],
       category = null,
+      deprecated = false,
+      label = null,
+      labelExplanation = null,
+      queryObjectCount = 1,
+      parseMethod = 'json-bigint',
     } = config;
 
     this.name = name;
@@ -118,10 +137,14 @@ export default class ChartMetadata {
     this.behaviors = behaviors;
     this.datasourceCount = datasourceCount;
     this.enableNoResults = enableNoResults;
-    this.deprecated = deprecated;
     this.exampleGallery = exampleGallery;
     this.tags = tags;
     this.category = category;
+    this.deprecated = deprecated;
+    this.label = label;
+    this.labelExplanation = labelExplanation;
+    this.queryObjectCount = queryObjectCount;
+    this.parseMethod = parseMethod;
   }
 
   canBeAnnotationType(type: string): boolean {

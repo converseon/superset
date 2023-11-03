@@ -20,24 +20,30 @@
 /* eslint-disable no-dupe-class-members */
 import { scaleOrdinal, ScaleOrdinal } from 'd3-scale';
 import { ExtensibleFunction } from '../models';
-import { ColorsLookup } from './types';
+import { ColorsInitLookup, ColorsLookup } from './types';
 import stringifyAndTrim from './stringifyAndTrim';
+import getSharedLabelColor from './SharedLabelColorSingleton';
+import { getAnalogousColors } from './utils';
+import { FeatureFlag, isFeatureEnabled } from '../utils';
 
 // Use type augmentation to correct the fact that
 // an instance of CategoricalScale is also a function
-
 interface CategoricalColorScale {
-  (x: { toString(): string }): string;
+  (x: { toString(): string }, y?: number): string;
 }
 
 class CategoricalColorScale extends ExtensibleFunction {
+  originColors: string[];
+
   colors: string[];
 
   scale: ScaleOrdinal<{ toString(): string }, string>;
 
-  parentForcedColors?: ColorsLookup;
+  parentForcedColors: ColorsLookup;
 
   forcedColors: ColorsLookup;
+
+  multiple: number;
 
   /**
    * Constructor
@@ -45,30 +51,83 @@ class CategoricalColorScale extends ExtensibleFunction {
    * @param {*} parentForcedColors optional parameter that comes from parent
    * (usually CategoricalColorNamespace) and supersede this.forcedColors
    */
-  constructor(colors: string[], parentForcedColors?: ColorsLookup) {
-    super((value: string) => this.getColor(value));
+  constructor(colors: string[], parentForcedColors: ColorsInitLookup = {}) {
+    super((value: string, sliceId?: number) => this.getColor(value, sliceId));
 
+    this.originColors = colors;
     this.colors = colors;
     this.scale = scaleOrdinal<{ toString(): string }, string>();
     this.scale.range(colors);
-    this.parentForcedColors = parentForcedColors;
+
+    // reserve fixed colors in parent map based on their index in the scale
+    Object.entries(parentForcedColors).forEach(([key, value]) => {
+      if (typeof value === 'number') {
+        // eslint-disable-next-line no-param-reassign
+        parentForcedColors[key] = colors[value % colors.length];
+      }
+    });
+
+    // all indexes have been replaced by a fixed color
+    this.parentForcedColors = parentForcedColors as ColorsLookup;
     this.forcedColors = {};
+    this.multiple = 0;
   }
 
-  getColor(value?: string) {
+  removeSharedLabelColorFromRange(
+    sharedColorMap: Map<string, string>,
+    cleanedValue: string,
+  ) {
+    // make sure we don't overwrite the origin colors
+    const updatedRange = new Set(this.originColors);
+    // remove the color option from shared color
+    sharedColorMap.forEach((value: string, key: string) => {
+      if (key !== cleanedValue) {
+        updatedRange.delete(value);
+      }
+    });
+    // remove the color option from forced colors
+    Object.entries(this.parentForcedColors).forEach(([key, value]) => {
+      if (key !== cleanedValue) {
+        updatedRange.delete(value);
+      }
+    });
+    this.range(updatedRange.size > 0 ? [...updatedRange] : this.originColors);
+  }
+
+  getColor(value?: string, sliceId?: number) {
     const cleanedValue = stringifyAndTrim(value);
-    const parentColor =
-      this.parentForcedColors && this.parentForcedColors[cleanedValue];
-    if (parentColor) {
-      return parentColor;
+    const sharedLabelColor = getSharedLabelColor();
+    const sharedColorMap = sharedLabelColor.getColorMap();
+    const sharedColor = sharedColorMap.get(cleanedValue);
+
+    // priority: parentForcedColors > forcedColors > labelColors
+    let color =
+      this.parentForcedColors?.[cleanedValue] ||
+      this.forcedColors?.[cleanedValue] ||
+      sharedColor;
+
+    if (isFeatureEnabled(FeatureFlag.USE_ANALAGOUS_COLORS)) {
+      const multiple = Math.floor(
+        this.domain().length / this.originColors.length,
+      );
+      if (multiple > this.multiple) {
+        this.multiple = multiple;
+        const newRange = getAnalogousColors(this.originColors, multiple);
+        this.range(this.originColors.concat(newRange));
+      }
+    }
+    const newColor = this.scale(cleanedValue);
+    if (!color) {
+      color = newColor;
+      if (isFeatureEnabled(FeatureFlag.AVOID_COLORS_COLLISION)) {
+        this.removeSharedLabelColorFromRange(sharedColorMap, cleanedValue);
+        color = this.scale(cleanedValue);
+      }
     }
 
-    const forcedColor = this.forcedColors[cleanedValue];
-    if (forcedColor) {
-      return forcedColor;
-    }
+    sharedLabelColor.addSlice(cleanedValue, color, sliceId);
 
-    return this.scale(cleanedValue);
+    return color;
   }
 
   /**
@@ -144,7 +203,7 @@ class CategoricalColorScale extends ExtensibleFunction {
    *
    * If there are fewer elements in the range than in the domain, the scale will reuse values from the start of the range.
    *
-   * @param range Array of range values.
+   * @param newRange Array of range values.
    */
   range(newRange: string[]): this;
 

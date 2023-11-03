@@ -26,6 +26,7 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const CssMinimizerPlugin = require('css-minimizer-webpack-plugin');
 const SpeedMeasurePlugin = require('speed-measure-webpack-plugin');
+const createMdxCompiler = require('@storybook/addon-docs/mdx-compiler-plugin');
 const {
   WebpackManifestPlugin,
   getCompilerHooks,
@@ -74,7 +75,7 @@ if (!isDevMode) {
 
 const plugins = [
   new webpack.ProvidePlugin({
-    process: 'process/browser',
+    process: 'process/browser.js',
   }),
 
   // creates a manifest.json mapping of name to hashed output used in template files
@@ -95,19 +96,18 @@ const plugins = [
         entryFiles[entry] = {
           css: chunks
             .filter(x => x.endsWith('.css'))
-            .map(x => path.join(output.publicPath, x)),
+            .map(x => `${output.publicPath}${x}`),
           js: chunks
-            .filter(x => x.endsWith('.js'))
-            .map(x => path.join(output.publicPath, x)),
+            .filter(x => x.endsWith('.js') && x.match(/(?<!hot-update).js$/))
+            .map(x => `${output.publicPath}${x}`),
         };
       });
-
       return {
         ...seed,
         entrypoints: entryFiles,
       };
     },
-    // Also write maniafest.json to disk when running `npm run dev`.
+    // Also write manifest.json to disk when running `npm run dev`.
     // This is required for Flask to work.
     writeToFileEmit: isDevMode && !isDevServer,
   }),
@@ -115,6 +115,8 @@ const plugins = [
   // expose mode variable to other modules
   new webpack.DefinePlugin({
     'process.env.WEBPACK_MODE': JSON.stringify(mode),
+    'process.env.REDUX_DEFAULT_MIDDLEWARE':
+      process.env.REDUX_DEFAULT_MIDDLEWARE,
   }),
 
   new CopyPlugin({
@@ -209,11 +211,6 @@ const config = {
     menu: addPreamble('src/views/menu.tsx'),
     spa: addPreamble('/src/views/index.tsx'),
     embedded: addPreamble('/src/embedded/index.tsx'),
-    addSlice: addPreamble('/src/addSlice/index.tsx'),
-    explore: addPreamble('/src/explore/index.jsx'),
-    sqllab: addPreamble('/src/SqlLab/index.tsx'),
-    profile: addPreamble('/src/profile/index.tsx'),
-    showSavedQuery: [path.join(APP_DIR, '/src/showSavedQuery/index.jsx')],
   },
   output,
   stats: 'minimal',
@@ -251,7 +248,6 @@ const config = {
               'react-hot-loader',
               'react-select',
               'react-sortable-hoc',
-              'react-virtualized',
               'react-table',
               'react-ace',
               '@hot-loader.*',
@@ -290,11 +286,14 @@ const config = {
       //  AntD version conflict has been resolved
       antd: path.resolve(path.join(APP_DIR, './node_modules/antd')),
       react: path.resolve(path.join(APP_DIR, './node_modules/react')),
+      // TODO: remove Handlebars alias once Handlebars NPM package has been updated to
+      // correctly support webpack import (https://github.com/handlebars-lang/handlebars.js/issues/953)
+      handlebars: 'handlebars/dist/handlebars.js',
     },
     extensions: ['.ts', '.tsx', '.js', '.jsx', '.yml'],
     fallback: {
       fs: false,
-      vm: false,
+      vm: require.resolve('vm-browserify'),
       path: false,
     },
   },
@@ -323,7 +322,7 @@ const config = {
               transpileOnly: true,
               // must override compiler options here, even though we have set
               // the same options in `tsconfig.json`, because they may still
-              // be overriden by `tsconfig.json` in node_modules subdirectories.
+              // be overridden by `tsconfig.json` in node_modules subdirectories.
               compilerOptions: {
                 esModuleInterop: false,
                 importHelpers: false,
@@ -340,6 +339,9 @@ const config = {
         exclude: [/superset-ui.*\/node_modules\//, /\.test.jsx?$/],
         include: [
           new RegExp(`${APP_DIR}/(src|.storybook|plugins|packages)`),
+          ...['./src', './.storybook', './plugins', './packages'].map(p =>
+            path.resolve(__dirname, p),
+          ), // redundant but required for windows
           /@encodable/,
         ],
         use: [babelLoader],
@@ -360,7 +362,7 @@ const config = {
           {
             loader: 'css-loader',
             options: {
-              sourceMap: isDevMode,
+              sourceMap: true,
             },
           },
         ],
@@ -373,14 +375,19 @@ const config = {
           {
             loader: 'css-loader',
             options: {
-              sourceMap: isDevMode,
+              sourceMap: true,
             },
           },
           {
             loader: 'less-loader',
             options: {
-              sourceMap: isDevMode,
-              javascriptEnabled: true,
+              sourceMap: true,
+              lessOptions: {
+                javascriptEnabled: true,
+                modifyVars: {
+                  'root-entry-name': 'default',
+                },
+              },
             },
           },
         ],
@@ -404,7 +411,18 @@ const config = {
       {
         test: /\.svg(\?v=\d+\.\d+\.\d+)?$/,
         issuer: /\.([jt])sx?$/,
-        use: ['@svgr/webpack'],
+        use: [
+          {
+            loader: '@svgr/webpack',
+            options: {
+              titleProp: true,
+              ref: true,
+              // this is the default value for the icon. Using other values
+              // here will replace width and height in svg with 1em
+              icon: false,
+            },
+          },
+        ],
       },
       {
         test: /\.(jpg|gif)$/,
@@ -427,6 +445,24 @@ const config = {
         test: /\.geojson$/,
         type: 'asset/resource',
       },
+      {
+        test: /\.mdx$/,
+        use: [
+          {
+            loader: 'babel-loader',
+            // may or may not need this line depending on your app's setup
+            options: {
+              plugins: ['@babel/plugin-transform-react-jsx'],
+            },
+          },
+          {
+            loader: '@mdx-js/loader',
+            options: {
+              compilers: [createMdxCompiler({})],
+            },
+          },
+        ],
+      },
     ],
   },
   externals: {
@@ -435,7 +471,7 @@ const config = {
     'react/lib/ReactContext': true,
   },
   plugins,
-  devtool: false,
+  devtool: 'source-map',
 };
 
 // find all the symlinked plugins and use their source code for imports
@@ -472,7 +508,11 @@ if (isDevMode) {
       () => proxyConfig,
     ],
     client: {
-      overlay: { errors: true, warnings: false },
+      overlay: {
+        errors: true,
+        warnings: false,
+        runtimeErrors: error => !/ResizeObserver/.test(error.message),
+      },
       logging: 'error',
     },
     static: path.join(process.cwd(), '../static/assets'),

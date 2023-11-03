@@ -39,7 +39,10 @@ def get_end_dttm(annotation_id: int) -> datetime:
 
 
 def _insert_annotation_layer(name: str = "", descr: str = "") -> AnnotationLayer:
-    annotation_layer = AnnotationLayer(name=name, descr=descr,)
+    annotation_layer = AnnotationLayer(
+        name=name,
+        descr=descr,
+    )
     db.session.add(annotation_layer)
     db.session.commit()
     return annotation_layer
@@ -70,7 +73,7 @@ def _insert_annotation(
 def create_annotation_layers():
     """
     Creates ANNOTATION_LAYERS_COUNT-1 layers with no annotations
-    and a final one with ANNOTATION_COUNT childs
+    and a final one with ANNOTATION_COUNT children
     :return:
     """
     with app.app_context():

@@ -20,19 +20,85 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import { bindActionCreators } from 'redux';
 import { connect } from 'react-redux';
-import { t, supersetTheme, ThemeProvider } from '@superset-ui/core';
-import { FeatureFlag, isFeatureEnabled } from 'src/featureFlags';
+import { Redirect } from 'react-router-dom';
+import { css, styled, t } from '@superset-ui/core';
 import throttle from 'lodash/throttle';
-import ToastContainer from 'src/components/MessageToasts/ToastContainer';
 import {
   LOCALSTORAGE_MAX_USAGE_KB,
   LOCALSTORAGE_WARNING_THRESHOLD,
   LOCALSTORAGE_WARNING_MESSAGE_THROTTLE_MS,
 } from 'src/SqlLab/constants';
 import * as Actions from 'src/SqlLab/actions/sqlLab';
+import { logEvent } from 'src/logger/actions';
+import {
+  LOG_ACTIONS_SQLLAB_WARN_LOCAL_STORAGE_USAGE,
+  LOG_ACTIONS_SQLLAB_MONITOR_LOCAL_STORAGE_USAGE,
+} from 'src/logger/LogUtils';
 import TabbedSqlEditors from '../TabbedSqlEditors';
 import QueryAutoRefresh from '../QueryAutoRefresh';
-import QuerySearch from '../QuerySearch';
+
+const SqlLabStyles = styled.div`
+  ${({ theme }) => css`
+    &.SqlLab {
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      padding: 0 ${theme.gridUnit * 2}px;
+
+      pre {
+        padding: 0 !important;
+        margin: 0;
+        border: none;
+        font-size: ${theme.typography.sizes.s}px;
+        background: transparent !important;
+      }
+
+      .north-pane {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .ace_editor {
+        flex-grow: 1;
+      }
+
+      .ace_content {
+        height: 100%;
+      }
+
+      .ant-tabs-content-holder {
+        /* This is needed for Safari */
+        height: 100%;
+      }
+
+      .ant-tabs-content {
+        height: 100%;
+        position: relative;
+        background-color: ${theme.colors.grayscale.light5};
+        overflow-x: auto;
+        overflow-y: auto;
+
+        > .ant-tabs-tabpane {
+          position: absolute;
+          top: 0;
+          right: 0;
+          bottom: 0;
+          left: 0;
+        }
+      }
+
+      .ResultsModal .ant-modal-body {
+        min-height: ${theme.gridUnit * 140}px;
+      }
+
+      .ant-modal-body {
+        overflow: auto;
+      }
+    }
+  `};
+`;
 
 class App extends React.PureComponent {
   constructor(props) {
@@ -58,13 +124,27 @@ class App extends React.PureComponent {
   }
 
   componentDidUpdate() {
+    const { localStorageUsageInKilobytes, actions, queries } = this.props;
+    const queryCount = queries?.lenghth || 0;
     if (
-      this.props.localStorageUsageInKilobytes >=
+      localStorageUsageInKilobytes >=
       LOCALSTORAGE_WARNING_THRESHOLD * LOCALSTORAGE_MAX_USAGE_KB
     ) {
       this.showLocalStorageUsageWarning(
-        this.props.localStorageUsageInKilobytes,
+        localStorageUsageInKilobytes,
+        queryCount,
       );
+    }
+    if (localStorageUsageInKilobytes > 0 && !this.hasLoggedLocalStorageUsage) {
+      const eventData = {
+        current_usage: localStorageUsageInKilobytes,
+        query_count: queryCount,
+      };
+      actions.logEvent(
+        LOG_ACTIONS_SQLLAB_MONITOR_LOCAL_STORAGE_USAGE,
+        eventData,
+      );
+      this.hasLoggedLocalStorageUsage = true;
     }
   }
 
@@ -79,7 +159,7 @@ class App extends React.PureComponent {
     this.setState({ hash: window.location.hash });
   }
 
-  showLocalStorageUsageWarning(currentUsage) {
+  showLocalStorageUsageWarning(currentUsage, queryCount) {
     this.props.actions.addDangerToast(
       t(
         "SQL Lab uses your browser's local storage to store queries and results." +
@@ -93,35 +173,36 @@ class App extends React.PureComponent {
         },
       ),
     );
+    const eventData = {
+      current_usage: currentUsage,
+      query_count: queryCount,
+    };
+    this.props.actions.logEvent(
+      LOG_ACTIONS_SQLLAB_WARN_LOCAL_STORAGE_USAGE,
+      eventData,
+    );
   }
 
   render() {
-    let content;
+    const { queries, queriesLastUpdate } = this.props;
     if (this.state.hash && this.state.hash === '#search') {
-      if (isFeatureEnabled(FeatureFlag.ENABLE_REACT_CRUD_VIEWS)) {
-        return window.location.replace('/superset/sqllab/history/');
-      }
-      content = (
-        <QuerySearch
-          actions={this.props.actions}
-          displayLimit={this.props.common.conf.DISPLAY_MAX_ROW}
+      return (
+        <Redirect
+          to={{
+            pathname: '/sqllab/history/',
+            replace: true,
+          }}
         />
-      );
-    } else {
-      content = (
-        <>
-          <QueryAutoRefresh />
-          <TabbedSqlEditors />
-        </>
       );
     }
     return (
-      <ThemeProvider theme={supersetTheme}>
-        <div className="App SqlLab">
-          {content}
-          <ToastContainer />
-        </div>
-      </ThemeProvider>
+      <SqlLabStyles data-test="SqlLabApp" className="App SqlLab">
+        <QueryAutoRefresh
+          queries={queries}
+          queriesLastUpdate={queriesLastUpdate}
+        />
+        <TabbedSqlEditors />
+      </SqlLabStyles>
     );
   }
 }
@@ -133,16 +214,18 @@ App.propTypes = {
 };
 
 function mapStateToProps(state) {
-  const { common, localStorageUsageInKilobytes } = state;
+  const { common, localStorageUsageInKilobytes, sqlLab } = state;
   return {
     common,
     localStorageUsageInKilobytes,
+    queries: sqlLab?.queries,
+    queriesLastUpdate: sqlLab?.queriesLastUpdate,
   };
 }
 
 function mapDispatchToProps(dispatch) {
   return {
-    actions: bindActionCreators(Actions, dispatch),
+    actions: bindActionCreators({ ...Actions, logEvent }, dispatch),
   };
 }
 

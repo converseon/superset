@@ -19,6 +19,10 @@
 
 const dataTestLocator = (value: string) => `[data-test='${value}']`;
 
+export function dataTestChartName(chartName: string): string {
+  return `[data-test-chart-name='${chartName}']`;
+}
+
 export const pageHeader = {
   logo: '.navbar-brand > img',
   headerNavigationItem: '.ant-menu-submenu-title',
@@ -80,11 +84,11 @@ export const databasesPage = {
     step: '.helper-top',
     selectDbStepTitle: '.select-db > h4',
     preferredBlockBigQuery: '.preferred > :nth-child(1)',
-    prefferedBlockPostgreSQL: '.preferred > :nth-child(2)',
-    prefferedBlockSnowflake: '.preferred > :nth-child(3)',
-    prefferedBlockMySQL: '.preferred > :nth-child(4)',
-    prefferedBlockAthena: '.preferred > :nth-child(5)',
-    prefferedBlockSheets: '.preferred > :nth-child(6)',
+    preferredBlockPostgreSQL: '.preferred > :nth-child(2)',
+    preferredBlockSnowflake: '.preferred > :nth-child(3)',
+    preferredBlockMySQL: '.preferred > :nth-child(4)',
+    preferredBlockAthena: '.preferred > :nth-child(5)',
+    preferredBlockSheets: '.preferred > :nth-child(6)',
     supportedDatabasesText: '.control-label',
     orChoose: '.available-label',
     dbDropdown: '[class="ant-select-selection-search-input"]',
@@ -123,10 +127,11 @@ export const databasesPage = {
 
 export const sqlLabView = {
   sqlEditorLeftBar: {
-    sqlEditorLeftBar: '[class="SqlEditorLeftBar"]',
-    databaseSchemaTableSection: '[class="SqlEditorLeftBar"] > :nth-child(1)',
+    sqlEditorLeftBar: '[data-test="sql-editor-left-bar"]',
+    databaseSchemaTableSection:
+      '[data-test="sql-editor-left-bar"] > :nth-child(1)',
     tableSchemaSection:
-      '[class="SqlEditorLeftBar"] > :nth-child(1) > :nth-child(3) > :nth-child(1)',
+      '[data-test="sql-editor-left-bar"] > :nth-child(1) > :nth-child(3) > :nth-child(1)',
     tableSchemaInputEmpty: '[aria-label="Select table or type table name"]',
   },
   databaseInput: '[data-test=DatabaseSelector] > :nth-child(1)',
@@ -320,12 +325,17 @@ export const nativeFilters = {
     yesCancelButton: '[type="button"]',
     alertXUnsavedFilters: '.ant-alert-message',
     tabsList: {
+      filterItemsContainer: dataTestLocator('filter-title-container'),
       tabsContainer: '[class="ant-tabs-nav-list"]',
       tab: '.ant-tabs-tab',
       removeTab: '[aria-label="trash"]',
     },
     addFilter: dataTestLocator('add-filter-button'),
     defaultValueCheck: '.ant-checkbox-checked',
+  },
+  addFilterButton: {
+    button: `.ant-modal-content [data-test="new-dropdown-icon"]`,
+    dropdownItem: '.ant-dropdown-menu-item',
   },
   filtersPanel: {
     filterName: dataTestLocator('filters-config-modal__name-input'),
@@ -342,18 +352,22 @@ export const nativeFilters = {
     expand: dataTestLocator('filter-bar__expand-button'),
     collapse: dataTestLocator('filter-bar__collapse-button'),
     filterName: dataTestLocator('filter-control-name'),
-    filterContent: '.ant-select-selection-item-content',
-    createFilterButton: dataTestLocator('create-filter'),
+    filterContent: '.ant-select-selection-item',
+    createFilterButton: dataTestLocator('filter-bar__create-filter'),
     timeRangeFilterContent: dataTestLocator('time-range-trigger'),
   },
   createFilterButton: dataTestLocator('filter-bar__create-filter'),
   removeFilter: '[aria-label="remove"]',
   silentLoading: '.loading inline-centered css-101mkpk',
   filterConfigurationSections: {
+    sectionHeader: '.ant-collapse-header',
+    displayedSection: 'div[style="height: 100%; overflow-y: auto;"]',
     collapseExpandButton: '.ant-collapse-arrow',
     checkedCheckbox: '.ant-checkbox-wrapper-checked',
     infoTooltip: '[aria-label="Show info tooltip"]',
     parentFilterInput: dataTestLocator('parent-filter-input'),
+    filterPlaceholder: '.ant-select-selection-placeholder',
+    collapsedSectionContainer: '[class="ant-collapse-content-box"]',
   },
   filtersList: {
     list: '.ant-tabs-nav-list',
@@ -367,6 +381,12 @@ export const nativeFilters = {
   applyFilter: dataTestLocator('filter-bar__apply-button'),
   defaultInput: dataTestLocator('default-input'),
   filterIcon: dataTestLocator('filter-icon'),
+  slider: {
+    slider: '[class="ant-slider"]',
+    startHandle: '[class="ant-slider-handle ant-slider-handle-1"]',
+    endHandle: '[class="ant-slider-handle ant-slider-handle-2"]',
+    sliderText: '[class="ant-slider-mark-text ant-slider-mark-text-active"]',
+  },
 };
 export const dashboardListView = {
   dashboardListView: dataTestLocator('dashboard-list-view'),
@@ -465,7 +485,7 @@ export const exploreView = {
   saveModal: {
     modal: '.ant-modal-content',
     chartNameInput: dataTestLocator('new-chart-name'),
-    dashboardNameInput: '#dashboard-creatable-select',
+    dashboardNameInput: '.ant-select-selection-search-input',
     addToDashboardInput: dataTestLocator(
       'save-chart-modal-select-dashboard-form',
     ),
@@ -570,7 +590,7 @@ export const exploreView = {
       okButton: '.ant-modal-confirm-btns .ant-btn-primary',
     },
   },
-  vizualizationTypeModal: {
+  visualizationTypeModal: {
     vizTypeButton: dataTestLocator('viztype-selector-container'),
   },
 };
@@ -593,6 +613,10 @@ export const editDashboardView = {
 };
 export const dashboardView = {
   dashboardContainer: dataTestLocator('grid-container'),
+  dashboardAlert: {
+    modal: dataTestLocator('toast-container'),
+    closeButton: dataTestLocator('close-button'),
+  },
   saveModal: {
     modal: '.ant-modal-content',
     dashboardNameInput: '.ant-input',
@@ -607,7 +631,8 @@ export const dashboardView = {
     trashIcon: dataTestLocator('dashboard-delete-component-button'),
     refreshChart: dataTestLocator('refresh-chart-menu-item'),
   },
-  threeDotsMenuIcon: '#save-dash-split-button',
+  threeDotsMenuIcon:
+    '.header-with-actions .right-button-panel .ant-dropdown-trigger',
   threeDotsMenuDropdown: dataTestLocator('header-actions-menu'),
   refreshDashboard: dataTestLocator('refresh-dashboard-menu-item'),
   saveAsMenuOption: dataTestLocator('save-as-menu-item'),
@@ -637,7 +662,7 @@ export const dashboardView = {
   },
   sliceThreeDots: '[aria-label="More Options"]',
   sliceThreeDotsDropdown: '[role="menu"]',
-  editDashboardButton: '[aria-label=edit-alt]',
+  editDashboardButton: '[aria-label="Edit dashboard"]',
   starIcon: dataTestLocator('fave-unfave-icon'),
   dashboardHeader: dataTestLocator('dashboard-header'),
   dashboardSectionContainer: dataTestLocator(

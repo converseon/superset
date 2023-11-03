@@ -24,9 +24,9 @@ import {
   NumberFormats,
   CategoricalColorNamespace,
   getSequentialSchemeRegistry,
+  t,
 } from '@superset-ui/core';
 import wrapSvgText from './utils/wrapSvgText';
-import './Sunburst.css';
 
 const propTypes = {
   // Each row is an array of [hierarchy-lvl1, hierarchy-lvl2, metric1, metric2]
@@ -82,7 +82,8 @@ function buildHierarchy(rows) {
     let currentNode = root;
     for (let level = 0; level < levels.length; level += 1) {
       const children = currentNode.children || [];
-      const nodeName = levels[level].toString();
+      const node = levels[level];
+      const nodeName = node ? node.toString() : t('N/A');
       // If the next node has the name '0', it will
       const isLeafNode = level >= levels.length - 1 || levels[level + 1] === 0;
       let childNode;
@@ -170,6 +171,7 @@ function Sunburst(element, props) {
     linearColorScheme,
     metrics,
     numberFormat,
+    sliceId,
   } = props;
   const responsiveClass = getResponsiveContainerClass(width);
   const isSmallWidth = responsiveClass === 's';
@@ -287,7 +289,7 @@ function Sunburst(element, props) {
       .attr('points', breadcrumbPoints)
       .style('fill', d =>
         colorByCategory
-          ? categoricalColorScale(d.name)
+          ? categoricalColorScale(d.name, sliceId)
           : linearColorScale(d.m2 / d.m1),
       );
 
@@ -300,7 +302,7 @@ function Sunburst(element, props) {
         // Make text white or black based on the lightness of the background
         const col = d3.hsl(
           colorByCategory
-            ? categoricalColorScale(d.name)
+            ? categoricalColorScale(d.name, sliceId)
             : linearColorScale(d.m2 / d.m1),
         );
 
@@ -381,7 +383,10 @@ function Sunburst(element, props) {
       .append('text')
       .attr('class', 'path-abs-percent')
       .attr('y', yOffsets[offsetIndex])
-      .text(`${absolutePercString} of total`);
+      // eslint-disable-next-line prefer-template
+      .text(absolutePercString + ' ' + t('of total'));
+
+    const OF_PARENT_TEXT = t('of parent');
 
     if (conditionalPercString) {
       offsetIndex += 1;
@@ -389,7 +394,7 @@ function Sunburst(element, props) {
         .append('text')
         .attr('class', 'path-cond-percent')
         .attr('y', yOffsets[offsetIndex])
-        .text(`${conditionalPercString} of parent`);
+        .text(`${conditionalPercString} ${OF_PARENT_TEXT}`);
     }
 
     offsetIndex += 1;
@@ -507,7 +512,7 @@ function Sunburst(element, props) {
       .attr('fill-rule', 'evenodd')
       .style('fill', d =>
         colorByCategory
-          ? categoricalColorScale(d.name)
+          ? categoricalColorScale(d.name, sliceId)
           : linearColorScale(d.m2 / d.m1),
       )
       .style('opacity', 1)

@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 """Unit tests for alerting in Superset"""
-import json
 import logging
 from contextlib import contextmanager
 from unittest.mock import patch
@@ -76,7 +75,7 @@ def create_old_role(pvm_map: PvmMigrationMapType, external_pvms):
 
 
 @pytest.mark.parametrize(
-    "descriptiom, new_pvms, pvm_map, external_pvms, deleted_views, deleted_permissions",
+    "description, new_pvms, pvm_map, external_pvms, deleted_views, deleted_permissions",
     [
         (
             "Many to one readonly",
@@ -102,7 +101,12 @@ def create_old_role(pvm_map: PvmMigrationMapType, external_pvms):
         ),
         (
             "Many to one with multiple permissions",
-            {"NewDummy": ("can_read", "can_write",)},
+            {
+                "NewDummy": (
+                    "can_read",
+                    "can_write",
+                )
+            },
             {
                 Pvm("DummyView", "can_list"): (Pvm("NewDummy", "can_read"),),
                 Pvm("DummyView", "can_show"): (Pvm("NewDummy", "can_read"),),
@@ -115,7 +119,12 @@ def create_old_role(pvm_map: PvmMigrationMapType, external_pvms):
         ),
         (
             "Many to one with multiple views",
-            {"NewDummy": ("can_read", "can_write",)},
+            {
+                "NewDummy": (
+                    "can_read",
+                    "can_write",
+                )
+            },
             {
                 Pvm("DummyView", "can_list"): (Pvm("NewDummy", "can_read"),),
                 Pvm("DummyView", "can_show"): (Pvm("NewDummy", "can_read"),),
@@ -132,7 +141,12 @@ def create_old_role(pvm_map: PvmMigrationMapType, external_pvms):
         ),
         (
             "Many to one with existing permission-view (pvm)",
-            {"NewDummy": ("can_read", "can_write",)},
+            {
+                "NewDummy": (
+                    "can_read",
+                    "can_write",
+                )
+            },
             {
                 Pvm("DummyView", "can_list"): (Pvm("NewDummy", "can_read"),),
                 Pvm("DummyView", "can_add"): (Pvm("NewDummy", "can_write"),),
@@ -143,20 +157,33 @@ def create_old_role(pvm_map: PvmMigrationMapType, external_pvms):
         ),
         (
             "Many to one with existing multiple permission-view (pvm)",
-            {"NewDummy": ("can_read", "can_write",)},
+            {
+                "NewDummy": (
+                    "can_read",
+                    "can_write",
+                )
+            },
             {
                 Pvm("DummyView", "can_list"): (Pvm("NewDummy", "can_read"),),
                 Pvm("DummyView", "can_add"): (Pvm("NewDummy", "can_write"),),
                 Pvm("DummySecondView", "can_list"): (Pvm("NewDummy", "can_read"),),
                 Pvm("DummySecondView", "can_add"): (Pvm("NewDummy", "can_write"),),
             },
-            (Pvm("UserDBModelView", "can_list"), Pvm("UserDBModelView", "can_add"),),
+            (
+                Pvm("UserDBModelView", "can_list"),
+                Pvm("UserDBModelView", "can_add"),
+            ),
             ("DummyView",),
             (),
         ),
         (
-            "Many to one with with old permission that gets deleted",
-            {"NewDummy": ("can_read", "can_write",)},
+            "Many to one with old permission that gets deleted",
+            {
+                "NewDummy": (
+                    "can_read",
+                    "can_write",
+                )
+            },
             {
                 Pvm("DummyView", "can_new_perm"): (Pvm("NewDummy", "can_read"),),
                 Pvm("DummyView", "can_add"): (Pvm("NewDummy", "can_write"),),
@@ -167,7 +194,13 @@ def create_old_role(pvm_map: PvmMigrationMapType, external_pvms):
         ),
         (
             "Many to Many (normally should be a downgrade)",
-            {"DummyView": ("can_list", "can_show", "can_add",)},
+            {
+                "DummyView": (
+                    "can_list",
+                    "can_show",
+                    "can_add",
+                )
+            },
             {
                 Pvm("NewDummy", "can_read"): (
                     Pvm("DummyView", "can_list"),
@@ -181,13 +214,22 @@ def create_old_role(pvm_map: PvmMigrationMapType, external_pvms):
         ),
         (
             "Many to Many delete old permissions",
-            {"DummyView": ("can_list", "can_show", "can_add",)},
+            {
+                "DummyView": (
+                    "can_list",
+                    "can_show",
+                    "can_add",
+                )
+            },
             {
                 Pvm("NewDummy", "can_new_perm1"): (
                     Pvm("DummyView", "can_list"),
                     Pvm("DummyView", "can_show"),
                 ),
-                Pvm("NewDummy", "can_new_perm2",): (Pvm("DummyView", "can_add"),),
+                Pvm(
+                    "NewDummy",
+                    "can_new_perm2",
+                ): (Pvm("DummyView", "can_add"),),
             },
             (),
             ("NewDummy",),
@@ -196,12 +238,12 @@ def create_old_role(pvm_map: PvmMigrationMapType, external_pvms):
     ],
 )
 def test_migrate_role(
-    descriptiom, new_pvms, pvm_map, external_pvms, deleted_views, deleted_permissions
+    description, new_pvms, pvm_map, external_pvms, deleted_views, deleted_permissions
 ):
     """
     Permission migration: generic tests
     """
-    logger.info(descriptiom)
+    logger.info(description)
     with create_old_role(pvm_map, external_pvms) as old_role:
         role_name = old_role.name
         session = db.session

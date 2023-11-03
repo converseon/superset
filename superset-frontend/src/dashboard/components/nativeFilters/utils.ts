@@ -23,23 +23,29 @@ import {
   EXTRA_FORM_DATA_APPEND_KEYS,
   EXTRA_FORM_DATA_OVERRIDE_KEYS,
   ExtraFormData,
+  isFeatureEnabled,
   FeatureFlag,
   Filter,
   getChartMetadataRegistry,
   QueryFormData,
 } from '@superset-ui/core';
-import { Charts, DashboardLayout } from 'src/dashboard/types';
-import { RefObject } from 'react';
+import { DashboardLayout } from 'src/dashboard/types';
 import extractUrlParams from 'src/dashboard/util/extractUrlParams';
-import { isFeatureEnabled } from 'src/featureFlags';
 import { CHART_TYPE, TAB_TYPE } from '../../util/componentTypes';
 import { DASHBOARD_GRID_ID, DASHBOARD_ROOT_ID } from '../../util/constants';
+import getBootstrapData from '../../../utils/getBootstrapData';
+
+const getDefaultRowLimit = (): number => {
+  const bootstrapData = getBootstrapData();
+  const nativeFilterDefaultRowLimit =
+    bootstrapData?.common?.conf?.NATIVE_FILTER_DEFAULT_ROW_LIMIT;
+  return nativeFilterDefaultRowLimit || 1000;
+};
 
 export const getFormData = ({
   datasetId,
-  cascadingFilters = {},
+  dependencies = {},
   groupby,
-  inputRef,
   defaultDataMask,
   controlValues,
   filterType,
@@ -48,10 +54,12 @@ export const getFormData = ({
   time_range,
   granularity_sqla,
   type,
+  dashboardId,
+  id,
 }: Partial<Filter> & {
+  dashboardId: number;
   datasetId?: number;
-  inputRef?: RefObject<HTMLInputElement>;
-  cascadingFilters?: object;
+  dependencies?: object;
   groupby?: string;
   adhoc_filters?: AdhocFilter[];
   time_range?: string;
@@ -75,19 +83,19 @@ export const getFormData = ({
     ...otherProps,
     adhoc_filters: adhoc_filters ?? [],
     extra_filters: [],
-    extra_form_data: cascadingFilters,
+    extra_form_data: dependencies,
     granularity_sqla,
     metrics: ['count'],
-    row_limit: 1000,
+    row_limit: getDefaultRowLimit(),
     showSearch: true,
     defaultValue: defaultDataMask?.filterState?.value,
     time_range,
-    time_range_endpoints: ['inclusive', 'exclusive'],
     url_params: extractUrlParams('regular'),
     inView: true,
     viz_type: filterType,
-    inputRef,
     type,
+    dashboardId,
+    native_filter_id: id,
   };
 };
 
@@ -127,7 +135,6 @@ export function isCrossFilter(vizType: string) {
 
 export function getExtraFormData(
   dataMask: DataMaskStateWithId,
-  charts: Charts,
   filterIdsAppliedOnChart: string[],
 ): ExtraFormData {
   let extraFormData: ExtraFormData = {};
@@ -152,7 +159,7 @@ export function nativeFilterGate(behaviors: Behavior[]): boolean {
 const isComponentATab = (
   dashboardLayout: DashboardLayout,
   componentId: string,
-) => dashboardLayout[componentId].type === TAB_TYPE;
+) => dashboardLayout?.[componentId]?.type === TAB_TYPE;
 
 const findTabsWithChartsInScopeHelper = (
   dashboardLayout: DashboardLayout,
@@ -160,27 +167,33 @@ const findTabsWithChartsInScopeHelper = (
   componentId: string,
   tabIds: string[],
   tabsToHighlight: Set<string>,
+  visited: Set<string>,
 ) => {
+  if (visited.has(componentId)) {
+    return;
+  }
+  visited.add(componentId);
   if (
-    dashboardLayout[componentId].type === CHART_TYPE &&
-    chartsInScope.includes(dashboardLayout[componentId].meta.chartId)
+    dashboardLayout?.[componentId]?.type === CHART_TYPE &&
+    chartsInScope.includes(dashboardLayout[componentId]?.meta?.chartId)
   ) {
     tabIds.forEach(tabsToHighlight.add, tabsToHighlight);
   }
   if (
-    dashboardLayout[componentId].children.length === 0 ||
+    dashboardLayout?.[componentId]?.children?.length === 0 ||
     (isComponentATab(dashboardLayout, componentId) &&
       tabsToHighlight.has(componentId))
   ) {
     return;
   }
-  dashboardLayout[componentId].children.forEach(childId =>
+  dashboardLayout[componentId]?.children.forEach(childId =>
     findTabsWithChartsInScopeHelper(
       dashboardLayout,
       chartsInScope,
       childId,
       isComponentATab(dashboardLayout, childId) ? [...tabIds, childId] : tabIds,
       tabsToHighlight,
+      visited,
     ),
   );
 };
@@ -193,19 +206,21 @@ export const findTabsWithChartsInScope = (
   const rootChildId = dashboardRoot.children[0];
   const hasTopLevelTabs = rootChildId !== DASHBOARD_GRID_ID;
   const tabsInScope = new Set<string>();
+  const visited = new Set<string>();
   if (hasTopLevelTabs) {
-    dashboardLayout[rootChildId].children?.forEach(tabId =>
+    dashboardLayout[rootChildId]?.children?.forEach(tabId =>
       findTabsWithChartsInScopeHelper(
         dashboardLayout,
         chartsInScope,
         tabId,
         [tabId],
         tabsInScope,
+        visited,
       ),
     );
   } else {
     Object.values(dashboardLayout)
-      .filter(element => element.type === TAB_TYPE)
+      .filter(element => element?.type === TAB_TYPE)
       .forEach(element =>
         findTabsWithChartsInScopeHelper(
           dashboardLayout,
@@ -213,6 +228,7 @@ export const findTabsWithChartsInScope = (
           element.id,
           [element.id],
           tabsInScope,
+          visited,
         ),
       );
   }

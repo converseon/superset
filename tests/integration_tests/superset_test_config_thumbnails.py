@@ -53,7 +53,7 @@ PUBLIC_ROLE_LIKE = "Gamma"
 AUTH_ROLE_PUBLIC = "Public"
 EMAIL_NOTIFICATIONS = False
 
-CACHE_CONFIG = {"CACHE_TYPE": "simple"}
+CACHE_CONFIG = {"CACHE_TYPE": "SimpleCache"}
 
 REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
 REDIS_PORT = os.environ.get("REDIS_PORT", "6379")
@@ -61,11 +61,10 @@ REDIS_CELERY_DB = os.environ.get("REDIS_CELERY_DB", 2)
 REDIS_RESULTS_DB = os.environ.get("REDIS_RESULTS_DB", 3)
 
 
-class CeleryConfig(object):
-    BROKER_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_CELERY_DB}"
-    CELERY_IMPORTS = ("superset.sql_lab", "superset.tasks.thumbnails")
-    CELERY_ANNOTATIONS = {"sql_lab.add": {"rate_limit": "10/s"}}
-    CONCURRENCY = 1
+class CeleryConfig:
+    broker_url = f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_CELERY_DB}"
+    imports = ("superset.sql_lab", "superset.tasks.thumbnails")
+    concurrency = 1
 
 
 CELERY_CONFIG = CeleryConfig
@@ -79,7 +78,7 @@ FEATURE_FLAGS = {
 }
 
 THUMBNAIL_CACHE_CONFIG = {
-    "CACHE_TYPE": "redis",
+    "CACHE_TYPE": "RedisCache",
     "CACHE_DEFAULT_TIMEOUT": 10000,
     "CACHE_KEY_PREFIX": "superset_thumbnails_",
     "CACHE_REDIS_HOST": REDIS_HOST,

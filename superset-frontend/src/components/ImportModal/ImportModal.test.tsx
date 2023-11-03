@@ -24,7 +24,7 @@ import { styledMount as mount } from 'spec/helpers/theming';
 import { ReactWrapper } from 'enzyme';
 import fetchMock from 'fetch-mock';
 import waitForComponentToPaint from 'spec/helpers/waitForComponentToPaint';
-import { Upload } from 'src/common/components';
+import { Upload } from 'src/components';
 import Button from 'src/components/Button';
 import { ImportResourceName } from 'src/views/CRUD/types';
 import ImportModelsModal from 'src/components/ImportModal';
@@ -145,5 +145,52 @@ describe('ImportModelsModal', () => {
       },
     );
     expect(wrapperWithPasswords.find('input[type="password"]')).toExist();
+  });
+
+  it('should render ssh_tunnel password fields when needed for import', () => {
+    const wrapperWithPasswords = mount(
+      <ImportModelsModal
+        {...requiredProps}
+        sshTunnelPasswordFields={['databases/examples.yaml']}
+      />,
+      {
+        context: { store },
+      },
+    );
+    expect(
+      wrapperWithPasswords.find('[data-test="ssh_tunnel_password"]'),
+    ).toExist();
+  });
+
+  it('should render ssh_tunnel private_key fields when needed for import', () => {
+    const wrapperWithPasswords = mount(
+      <ImportModelsModal
+        {...requiredProps}
+        sshTunnelPrivateKeyFields={['databases/examples.yaml']}
+      />,
+      {
+        context: { store },
+      },
+    );
+    expect(
+      wrapperWithPasswords.find('[data-test="ssh_tunnel_private_key"]'),
+    ).toExist();
+  });
+
+  it('should render ssh_tunnel private_key_password fields when needed for import', () => {
+    const wrapperWithPasswords = mount(
+      <ImportModelsModal
+        {...requiredProps}
+        sshTunnelPrivateKeyPasswordFields={['databases/examples.yaml']}
+      />,
+      {
+        context: { store },
+      },
+    );
+    expect(
+      wrapperWithPasswords.find(
+        '[data-test="ssh_tunnel_private_key_password"]',
+      ),
+    ).toExist();
   });
 });

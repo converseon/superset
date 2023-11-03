@@ -23,7 +23,7 @@ import { QueryParamProvider } from 'use-query-params';
 import { supersetTheme, ThemeProvider } from '@superset-ui/core';
 
 import Button from 'src/components/Button';
-import { Empty } from 'src/common/components';
+import { Empty } from 'src/components';
 import CardCollection from 'src/components/ListView/CardCollection';
 import { CardSortSelect } from 'src/components/ListView/CardSortSelect';
 import IndeterminateCheckbox from 'src/components/IndeterminateCheckbox';
@@ -470,7 +470,7 @@ describe('ListView', () => {
     });
 
     await act(async () => {
-      wrapper2.find('[aria-label="Sort"]').first().props().onChange({
+      wrapper2.find('[aria-label="Sort"]').first().props().onSelect({
         desc: false,
         id: 'something',
         label: 'Alphabetical',

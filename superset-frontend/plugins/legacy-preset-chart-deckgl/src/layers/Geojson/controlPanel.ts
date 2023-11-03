@@ -38,6 +38,8 @@ import {
   viewport,
   mapboxStyle,
   geojsonColumn,
+  autozoom,
+  lineWidth,
 } from '../../utilities/Shared_DeckGL';
 import { dndGeojsonColumn } from '../../utilities/sharedDndControls';
 
@@ -60,17 +62,30 @@ const config: ControlPanelConfig = {
     },
     {
       label: t('Map'),
-      controlSetRows: [
-        [mapboxStyle, viewport],
-        // TODO [autozoom, null], // import { autozoom } from './Shared_DeckGL'
-      ],
+      controlSetRows: [[mapboxStyle, viewport], [autozoom]],
     },
     {
       label: t('GeoJson Settings'),
       controlSetRows: [
         [fillColorPicker, strokeColorPicker],
         [filled, stroked],
-        [extruded, null],
+        [extruded],
+        [lineWidth],
+        [
+          {
+            name: 'line_width_unit',
+            config: {
+              type: 'SelectControl',
+              label: t('Line width unit'),
+              default: 'pixels',
+              choices: [
+                ['meters', t('meters')],
+                ['pixels', t('pixels')],
+              ],
+              renderTrigger: true,
+            },
+          },
+        ],
         [
           {
             name: 'point_radius_scale',
@@ -83,7 +98,6 @@ const config: ControlPanelConfig = {
               choices: formatSelectOptions([0, 100, 200, 300, 500]),
             },
           },
-          null,
         ],
       ],
     },

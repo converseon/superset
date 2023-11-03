@@ -23,7 +23,7 @@ from werkzeug.exceptions import NotFound
 
 from superset import db, event_logger, is_feature_enabled
 from superset.models import core as models
-from superset.typing import FlaskResponse
+from superset.superset_typing import FlaskResponse
 from superset.utils import core as utils
 from superset.views.base import BaseSupersetView, json_error_response
 
@@ -43,8 +43,8 @@ class KV(BaseSupersetView):
 
     @event_logger.log_this
     @has_access_api
-    @expose("/store/", methods=["POST"])
-    def store(self) -> FlaskResponse:  # pylint: disable=no-self-use
+    @expose("/store/", methods=("POST",))
+    def store(self) -> FlaskResponse:
         try:
             value = request.form.get("data")
             obj = models.KeyValue(value=value)
@@ -56,8 +56,8 @@ class KV(BaseSupersetView):
 
     @event_logger.log_this
     @has_access_api
-    @expose("/<int:key_id>/", methods=["GET"])
-    def get_value(self, key_id: int) -> FlaskResponse:  # pylint: disable=no-self-use
+    @expose("/<int:key_id>/", methods=("GET",))
+    def get_value(self, key_id: int) -> FlaskResponse:
         try:
             kv = db.session.query(models.KeyValue).filter_by(id=key_id).scalar()
             if not kv:

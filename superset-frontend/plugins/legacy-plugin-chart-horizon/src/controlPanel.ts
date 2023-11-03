@@ -34,18 +34,8 @@ const config: ControlPanelConfig = {
         ['adhoc_filters'],
         ['groupby'],
         ['limit', 'timeseries_limit_metric'],
+        ['order_desc'],
         [
-          {
-            name: 'order_desc',
-            config: {
-              type: 'CheckboxControl',
-              label: t('Sort Descending'),
-              default: true,
-              description: t('Whether to sort descending or ascending'),
-              visibility: ({ controls }) =>
-                Boolean(controls?.timeseries_limit_metric.value),
-            },
-          },
           {
             name: 'contribution',
             config: {
@@ -92,9 +82,9 @@ const config: ControlPanelConfig = {
               renderTrigger: true,
               label: t('Value Domain'),
               choices: [
-                ['series', 'series'],
-                ['overall', 'overall'],
-                ['change', 'change'],
+                ['series', t('series')],
+                ['overall', t('overall')],
+                ['change', t('change')],
               ],
               default: 'series',
               description: t(

@@ -21,18 +21,26 @@ import PropTypes from 'prop-types';
 import Mustache from 'mustache';
 import { scaleLinear } from 'd3-scale';
 import TableView from 'src/components/TableView';
-import { formatNumber, formatTime, styled } from '@superset-ui/core';
+import { styled, t } from '@superset-ui/core';
 import {
   InfoTooltipWithTrigger,
   MetricOption,
 } from '@superset-ui/chart-controls';
-import moment from 'moment';
+import sortNumericValues from 'src/utils/sortNumericValues';
 
 import FormattedNumber from './FormattedNumber';
 import SparklineCell from './SparklineCell';
-import './TimeTable.less';
 
 const ACCESSIBLE_COLOR_BOUNDS = ['#ca0020', '#0571b0'];
+
+const sortNumberWithMixedTypes = (rowA, rowB, columnId, descending) =>
+  sortNumericValues(
+    rowA.values[columnId].props['data-value'],
+    rowB.values[columnId].props['data-value'],
+    { descending, nanTreatment: 'asSmallest' },
+  ) *
+  // react-table sort function always expects -1 for smaller number
+  (descending ? -1 : 1);
 
 function colorFromBounds(value, bounds, colorBounds = ACCESSIBLE_COLOR_BOUNDS) {
   if (bounds) {
@@ -89,11 +97,13 @@ const defaultProps = {
   url: '',
 };
 
+// @z-index-above-dashboard-charts + 1 = 11
 const TimeTableStyles = styled.div`
   height: ${props => props.height}px;
+  overflow: auto;
 
   th {
-    z-index: 1; // to cover sparkline
+    z-index: 11 !important; // to cover sparkline
   }
 `;
 
@@ -108,7 +118,7 @@ const TimeTable = ({
 }) => {
   const memoizedColumns = useMemo(
     () => [
-      { accessor: 'metric', Header: 'Metric' },
+      { accessor: 'metric', Header: t('Metric') },
       ...columnConfigs.map((columnConfig, i) => ({
         accessor: columnConfig.key,
         cellProps: columnConfig.colType === 'spark' && {
@@ -126,11 +136,7 @@ const TimeTable = ({
             )}
           </>
         ),
-        sortType: (rowA, rowB, columnId) => {
-          const rowAVal = rowA.values[columnId].props['data-value'];
-          const rowBVal = rowB.values[columnId].props['data-value'];
-          return rowAVal - rowBVal;
-        },
+        sortType: sortNumberWithMixedTypes,
       })),
     ],
     [columnConfigs],
@@ -156,25 +162,16 @@ const TimeTable = ({
 
       return (
         <SparklineCell
+          ariaLabel={`spark-${valueField}`}
           width={parseInt(column.width, 10) || 300}
           height={parseInt(column.height, 10) || 50}
           data={sparkData}
-          data-value={sparkData[sparkData.length - 1]}
-          ariaLabel={`spark-${valueField}`}
+          dataKey={`spark-${valueField}`}
+          dateFormat={column.dateFormat}
           numberFormat={column.d3format}
           yAxisBounds={column.yAxisBounds}
           showYAxis={column.showYAxis}
-          renderTooltip={({ index }) => (
-            <div>
-              <strong>{formatNumber(column.d3format, sparkData[index])}</strong>
-              <div>
-                {formatTime(
-                  column.dateFormat,
-                  moment.utc(entries[index].time).toDate(),
-                )}
-              </div>
-            </div>
-          )}
+          entries={entries}
         />
       );
     };
@@ -192,7 +189,7 @@ const TimeTable = ({
         } else {
           v = reversedEntries[timeLag][valueField];
         }
-        if (typeof v === 'number' || typeof recent === 'number') {
+        if (typeof v === 'number' && typeof recent === 'number') {
           if (column.comparisonType === 'diff') {
             v = recent - v;
           } else if (column.comparisonType === 'perc') {
@@ -201,7 +198,7 @@ const TimeTable = ({
             v = recent / v - 1;
           }
         } else {
-          v = 'N/A';
+          v = null;
         }
       } else if (column.colType === 'contrib') {
         // contribution to column total
@@ -235,10 +232,10 @@ const TimeTable = ({
         <span
           key={column.key}
           data-value={v}
-          style={
+          css={theme =>
             color && {
               boxShadow: `inset 0px -2.5px 0px 0px ${color}`,
-              borderRight: '2px solid #fff',
+              borderRight: `2px solid ${theme.colors.grayscale.light5}`,
             }
           }
         >
@@ -319,7 +316,11 @@ const TimeTable = ({
       : [];
 
   return (
-    <TimeTableStyles className={`time-table ${className}`} height={height}>
+    <TimeTableStyles
+      data-test="time-table"
+      className={className}
+      height={height}
+    >
       <TableView
         className="table-no-hover"
         columns={memoizedColumns}

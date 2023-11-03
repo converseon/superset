@@ -18,22 +18,23 @@
  */
 
 import componentTypes from 'src/dashboard/util/componentTypes';
-import { NativeFilterScope, JsonObject } from '@superset-ui/core';
+import { JsonObject } from '@superset-ui/core';
 
 export enum Scoping {
   All = 'All',
   Specific = 'Specific',
 }
 
-export type ChartConfiguration = {
-  [chartId: number]: {
-    id: number;
-    crossFilters: {
-      scope: NativeFilterScope;
-    };
-  };
+export type User = {
+  email: string;
+  firstName: string;
+  isActive: boolean;
+  lastName: string;
+  permissions: Record<string, any>;
+  roles: Record<string, any>;
+  userId: number;
+  username: string;
 };
-
 export interface DashboardInfo {
   id: number;
   json_metadata: string;

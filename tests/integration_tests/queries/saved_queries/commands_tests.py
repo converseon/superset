@@ -84,6 +84,24 @@ class TestExportSavedQueriesCommand(SupersetTestCase):
         }
 
     @patch("superset.queries.saved_queries.filters.g")
+    def test_export_query_command_no_related(self, mock_g):
+        """
+        Test that only the query is exported when export_related=False.
+        """
+        mock_g.user = security_manager.find_user("admin")
+
+        command = ExportSavedQueriesCommand(
+            [self.example_query.id], export_related=False
+        )
+        contents = dict(command.run())
+
+        expected = [
+            "metadata.yaml",
+            "queries/examples/schema1/The_answer.yaml",
+        ]
+        assert expected == list(contents.keys())
+
+    @patch("superset.queries.saved_queries.filters.g")
     def test_export_query_command_no_access(self, mock_g):
         """Test that users can't export datasets they don't have access to"""
         mock_g.user = security_manager.find_user("gamma")
@@ -124,8 +142,11 @@ class TestExportSavedQueriesCommand(SupersetTestCase):
 
 
 class TestImportSavedQueriesCommand(SupersetTestCase):
-    def test_import_v1_saved_queries(self):
+    @patch("superset.security.manager.g")
+    def test_import_v1_saved_queries(self, mock_g):
         """Test that we can import a saved query"""
+        mock_g.user = security_manager.find_user("admin")
+
         contents = {
             "metadata.yaml": yaml.safe_dump(saved_queries_metadata_config),
             "databases/imported_database.yaml": yaml.safe_dump(database_config),
@@ -151,8 +172,11 @@ class TestImportSavedQueriesCommand(SupersetTestCase):
         db.session.delete(database)
         db.session.commit()
 
-    def test_import_v1_saved_queries_multiple(self):
+    @patch("superset.security.manager.g")
+    def test_import_v1_saved_queries_multiple(self, mock_g):
         """Test that a saved query can be imported multiple times"""
+        mock_g.user = security_manager.find_user("admin")
+
         contents = {
             "metadata.yaml": yaml.safe_dump(saved_queries_metadata_config),
             "databases/imported_database.yaml": yaml.safe_dump(database_config),

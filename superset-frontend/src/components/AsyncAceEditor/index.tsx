@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import React from 'react';
+import React, { forwardRef, useEffect } from 'react';
 import {
   Editor as OrigEditor,
   IEditSession,
@@ -24,15 +24,19 @@ import {
   TextMode as OrigTextMode,
 } from 'brace';
 import AceEditor, { IAceEditorProps } from 'react-ace';
+import { acequire } from 'ace-builds/src-noconflict/ace';
 import AsyncEsmComponent, {
   PlaceholderProps,
 } from 'src/components/AsyncEsmComponent';
+import useEffectEvent from 'src/hooks/useEffectEvent';
 
 export interface AceCompleterKeywordData {
   name: string;
   value: string;
   score: number;
   meta: string;
+  docText?: string;
+  docHTML?: string;
 }
 
 export type TextMode = OrigTextMode & { $id: string };
@@ -55,7 +59,7 @@ export interface AceCompleterKeyword extends AceCompleterKeywordData {
 
 /**
  * Async loaders to import brace modules. Must manually create call `import(...)`
- * promises because webpack can only analyze asycn imports statically.
+ * promises because webpack can only analyze async imports statically.
  */
 const aceModuleLoaders = {
   'mode/sql': () => import('brace/mode/sql'),
@@ -68,6 +72,7 @@ const aceModuleLoaders = {
   'theme/textmate': () => import('brace/theme/textmate'),
   'theme/github': () => import('brace/theme/github'),
   'ext/language_tools': () => import('brace/ext/language_tools'),
+  'ext/searchbox': () => import('brace/ext/searchbox'),
 };
 
 export type AceModule = keyof typeof aceModuleLoaders;
@@ -82,6 +87,7 @@ export type AsyncAceEditorOptions = {
   defaultMode?: AceEditorMode;
   defaultTheme?: AceEditorTheme;
   defaultTabSize?: number;
+  fontFamily?: string;
   placeholder?: React.ComponentType<
     PlaceholderProps & Partial<IAceEditorProps>
   > | null;
@@ -96,11 +102,11 @@ export default function AsyncAceEditor(
     defaultMode,
     defaultTheme,
     defaultTabSize = 2,
+    fontFamily = 'Menlo, Consolas, Courier New, Ubuntu Mono, source-code-pro, Lucida Console, monospace',
     placeholder,
   }: AsyncAceEditorOptions = {},
 ) {
   return AsyncEsmComponent(async () => {
-    const { default: ace } = await import('brace');
     const { default: ReactAceEditor } = await import('react-ace');
 
     await Promise.all(aceModules.map(x => aceModuleLoaders[x]()));
@@ -112,7 +118,7 @@ export default function AsyncAceEditor(
       defaultTheme ||
       aceModules.find(x => x.startsWith('theme/'))?.replace('theme/', '');
 
-    return React.forwardRef<AceEditor, AsyncAceEditorProps>(
+    return forwardRef<AceEditor, AsyncAceEditorProps>(
       function ExtendedAceEditor(
         {
           keywords,
@@ -124,27 +130,37 @@ export default function AsyncAceEditor(
         },
         ref,
       ) {
-        if (keywords) {
-          const langTools = ace.acequire('ace/ext/language_tools');
-          const completer = {
-            getCompletions: (
-              editor: AceEditor,
-              session: IEditSession,
-              pos: Position,
-              prefix: string,
-              callback: (error: null, wordList: object[]) => void,
-            ) => {
-              // If the prefix starts with a number, don't try to autocomplete
-              if (!Number.isNaN(parseInt(prefix, 10))) {
-                return;
-              }
-              if ((session.getMode() as TextMode).$id === `ace/mode/${mode}`) {
-                callback(null, keywords);
-              }
-            },
-          };
-          langTools.setCompleters([completer]);
-        }
+        const langTools = acequire('ace/ext/language_tools');
+        const setCompleters = useEffectEvent(
+          (keywords: AceCompleterKeyword[]) => {
+            const completer = {
+              getCompletions: (
+                editor: AceEditor,
+                session: IEditSession,
+                pos: Position,
+                prefix: string,
+                callback: (error: null, wordList: object[]) => void,
+              ) => {
+                // If the prefix starts with a number, don't try to autocomplete
+                if (!Number.isNaN(parseInt(prefix, 10))) {
+                  return;
+                }
+                if (
+                  (session.getMode() as TextMode).$id === `ace/mode/${mode}`
+                ) {
+                  callback(null, keywords);
+                }
+              },
+            };
+            langTools.setCompleters([completer]);
+          },
+        );
+        useEffect(() => {
+          if (keywords) {
+            setCompleters(keywords);
+          }
+        }, [keywords, setCompleters]);
+
         return (
           <ReactAceEditor
             ref={ref}
@@ -152,6 +168,7 @@ export default function AsyncAceEditor(
             theme={theme}
             tabSize={tabSize}
             defaultValue={defaultValue}
+            setOptions={{ fontFamily }}
             {...props}
           />
         );
@@ -164,10 +181,11 @@ export const SQLEditor = AsyncAceEditor([
   'mode/sql',
   'theme/github',
   'ext/language_tools',
+  'ext/searchbox',
 ]);
 
 export const FullSQLEditor = AsyncAceEditor(
-  ['mode/sql', 'theme/github', 'ext/language_tools'],
+  ['mode/sql', 'theme/github', 'ext/language_tools', 'ext/searchbox'],
   {
     // a custom placeholder in SQL lab for less jumpy re-renders
     placeholder: () => {
