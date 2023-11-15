@@ -21,7 +21,12 @@ x-superset-depends-on: &superset-depends-on
 x-superset-volumes:
   &superset-volumes # /app/pythonpath_docker will be appended to the PYTHONPATH in the final container
   - ./docker:/app/docker
+  - ./superset-frontend:/app/superset-frontend
+  - ./superset/static/assets/:/app/superset/static/assets
   - superset_home:/app/superset_home
+  - ./overrides/basic.html:/app/superset/templates/superset/basic.html
+  - ./overrides/superset-logo-horiz.png:/app/superset/static/assets/images/superset-logo-horiz.png
+  - ./overrides/config.py:/app/superset/config.py
 
 version: "3.7"
 services:
@@ -64,6 +69,14 @@ services:
     healthcheck:
       disable: true
 
+  superset-node:
+    image: node:16
+    container_name: superset_node
+    command: ["/app/docker/docker-frontend.sh"]
+    env_file: docker/.env
+    depends_on: *superset-depends-on
+    volumes: *superset-volumes
+
   superset-worker:
     image: *superset-image
     container_name: superset_worker
@@ -99,3 +112,8 @@ volumes:
     external: false
   redis:
     external: false
+
+networks:
+  default:
+    external:
+      name: external
